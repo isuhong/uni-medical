@@ -9,27 +9,39 @@ let CHAT = {};        // 거래처별 메시지 로그(데모)
 
 /* ---------- 로그인 ---------- */
 function attemptLogin(id, pw){
-  const acc = ACCOUNTS[id?.trim()];
-  if (!acc || acc.password !== pw?.trim()){
+  const rawId = id?.trim(), rawPw = pw?.trim();
+
+  // 본사(HQ) 계정 분기 — 완전히 다른 콘솔로 진입
+  if (rawId === "uni-hq" && rawPw === HQ_ACCOUNT.password){
+    document.getElementById("loginError").textContent = "";
+    enterHQ();
+    return;
+  }
+
+  const acc = ACCOUNTS[rawId];
+  if (!acc || acc.password !== rawPw){
     document.getElementById("loginError").textContent =
-      "거래처 ID 또는 비밀번호가 올바르지 않습니다.";
+      "ID 또는 비밀번호가 올바르지 않습니다.";
     return;
   }
   // 깊은 복사로 세션 재고 확보 (원본 불변)
-  SESSION = { id, acc: JSON.parse(JSON.stringify(acc)) };
+  SESSION = { id:rawId, acc: JSON.parse(JSON.stringify(acc)) };
   CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
-  if (!CHAT[id]) CHAT[id] = seedChat(SESSION.acc);
+  if (!CHAT[rawId]) CHAT[rawId] = seedChat(SESSION.acc);
   showApp();
 }
 
 function fillDemo(id){
   document.getElementById("loginId").value = id;
-  document.getElementById("loginPw").value = ACCOUNTS[id].password;
+  document.getElementById("loginPw").value =
+    id === "uni-hq" ? HQ_ACCOUNT.password : ACCOUNTS[id].password;
 }
 
 function logout(){
   SESSION = null;
   document.getElementById("appRoot").style.display = "none";
+  const hq = document.getElementById("hqRoot");
+  if (hq) hq.style.display = "none";
   document.getElementById("loginRoot").style.display = "";
   document.getElementById("loginError").textContent = "";
 }
@@ -46,9 +58,9 @@ function showApp(){
 }
 
 function switchTab(name){
-  document.querySelectorAll(".tab").forEach(t =>
+  document.querySelectorAll("#appRoot .tab").forEach(t =>
     t.classList.toggle("active", t.dataset.tab === name));
-  document.querySelectorAll(".view").forEach(v =>
+  document.querySelectorAll("#appRoot .view").forEach(v =>
     v.classList.toggle("active", v.id === "view-"+name));
   if (name === "dashboard")  renderDashboard();
   if (name === "inventory")  renderInventory();
@@ -347,7 +359,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
   document.getElementById("loginPw").addEventListener("keydown", e=>{
     if (e.key==="Enter") document.getElementById("loginBtn").click();
   });
-  document.querySelectorAll(".tab").forEach(t=>
+  document.querySelectorAll("#appRoot .tab").forEach(t=>
     t.addEventListener("click", ()=>switchTab(t.dataset.tab)));
   document.getElementById("logoutBtn").addEventListener("click", logout);
   document.getElementById("chatSend").addEventListener("click", sendMessage);

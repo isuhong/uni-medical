@@ -310,3 +310,89 @@ tr:last-child td{ border-bottom:none; }
 @media (max-width:380px){
   .stat-grid{ grid-template-columns:1fr; }
 }
+
+/* ============ 본사(HQ) 콘솔 ============ */
+/* 공급자 콘솔은 딥네이비 액센트로 거래처 뷰(파인그린)와 구분 */
+:root{ --navy:#1B2A4A; --navy-soft:#E7EBF3; --navy-ink:#0F1B33; }
+.hq-topbar{ background:rgba(245,243,238,.9); }
+.hq-mark{ background:var(--navy); }
+.sub-h{ font-size:14px; font-weight:700; letter-spacing:-.01em; margin:6px 0 12px;
+  color:var(--navy-ink); }
+
+/* AI 인사이트 카드 */
+.ai-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:14px; margin-bottom:26px; }
+.ai-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  padding:16px 18px; box-shadow:var(--shadow); border-top:3px solid var(--navy); }
+.ai-card.risk{ border-top-color:var(--now); }
+.ai-card.opportunity{ border-top-color:var(--pine); }
+.ai-card.info{ border-top-color:var(--navy); }
+.ai-head{ display:flex; align-items:center; gap:7px; }
+.ai-dot{ width:7px; height:7px; border-radius:99px; background:var(--navy); }
+.ai-dot.risk{ background:var(--now); } .ai-dot.opportunity{ background:var(--pine); }
+.ai-kicker{ font-size:11px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+  color:var(--ink-soft); }
+.ai-title{ font-weight:700; margin:8px 0 4px; letter-spacing:-.01em; }
+.ai-body{ font-size:13px; color:var(--ink-soft); line-height:1.5; margin-bottom:12px; }
+.ai-action{ background:none; border:none; color:var(--navy); font-weight:600;
+  font-size:13px; padding:0; }
+.ai-action:hover{ text-decoration:underline; }
+
+/* 상태 필터 칩 */
+.chip-bar{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+.chip{ padding:7px 14px; border:1px solid var(--line); background:#fff; border-radius:99px;
+  font-size:13px; color:var(--ink-soft); }
+.chip b{ color:var(--ink); margin-left:3px; }
+.chip.on{ background:var(--navy); color:#fff; border-color:var(--navy); }
+.chip.on b{ color:#fff; }
+
+.live-tag{ font-size:10px; font-weight:700; color:var(--pine); background:var(--pine-soft);
+  padding:1px 6px; border-radius:5px; margin-left:6px; vertical-align:middle; }
+
+/* 거래처 상세 드릴다운 */
+.back-btn{ background:none; border:none; color:var(--navy); font-weight:600; font-size:14px;
+  padding:0; margin-bottom:16px; }
+.back-btn:hover{ text-decoration:underline; }
+.detail-head{ display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+.detail-name{ font-size:20px; font-weight:700; letter-spacing:-.02em;
+  display:flex; align-items:center; gap:10px; }
+.detail-meta{ font-size:13px; color:var(--ink-soft); font-family:var(--mono); margin-top:2px; }
+.detail-actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+
+/* 파이프라인 승인 버튼 */
+.mini-btn{ padding:5px 12px; border:1px solid var(--navy); background:#fff; color:var(--navy);
+  border-radius:7px; font-size:12px; font-weight:600; }
+.mini-btn:hover{ background:var(--navy); color:#fff; }
+
+/* 제품 분석 막대 + 추세 */
+.bar-wrap{ height:8px; background:#EEEBE3; border-radius:99px; overflow:hidden; min-width:90px; }
+.bar{ height:100%; background:var(--navy); border-radius:99px; }
+.trend{ font-family:var(--mono); font-size:12px; font-weight:600; }
+.trend.up{ color:var(--ok); } .trend.down{ color:var(--now); }
+
+/* 인박스 */
+.inbox-row{ display:flex; align-items:center; gap:14px; padding:15px 18px;
+  border-bottom:1px solid var(--line); cursor:pointer; }
+.inbox-row:last-child{ border-bottom:none; }
+.inbox-row:hover{ background:#FBFAF7; }
+.inbox-row.unread{ background:var(--navy-soft); }
+.inbox-row.unread:hover{ background:#DEE4EF; }
+.inbox-main{ flex:1; min-width:0; }
+.inbox-top{ display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+.inbox-acct{ font-weight:700; }
+.inbox-cat{ font-size:11px; color:var(--navy); background:var(--navy-soft);
+  padding:2px 7px; border-radius:6px; font-weight:600; }
+.inbox-badge{ font-size:10px; font-weight:700; color:#fff; background:var(--now);
+  padding:1px 6px; border-radius:5px; }
+.inbox-preview{ font-size:13px; color:var(--ink-soft); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.inbox-time{ font-size:12px; color:var(--ink-soft); font-family:var(--mono); flex-shrink:0; }
+
+/* HQ 테이블 행 호버 (클릭 가능한 행) */
+#hqRoot tbody tr[onclick]:hover{ background:#FBFAF7; }
+
+@media (max-width:760px){
+  .ai-grid{ grid-template-columns:1fr; }
+  .inbox-preview{ white-space:normal; }
+  .detail-actions .btn{ flex:1; }
+}

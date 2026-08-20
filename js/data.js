@@ -127,3 +127,107 @@ const ACCOUNTS = {
     ],
   },
 };
+
+/* =========================================================================
+   본사(유엔아이메디컬) 관제용 데이터
+   - HQ_ACCOUNT: 본사 로그인 계정
+   - FLEET: 관제 대시보드용 거래처 풀. 위 3개 상세 계정 + 요약형 거래처 다수.
+     (실제로는 1,500개 거래처. 데모는 대표 12개 + 집계치로 표현)
+   ========================================================================= */
+
+const HQ_ACCOUNT = {
+  password: "uni-hq",
+  profile: {
+    name: "유엔아이메디컬 (본사)",
+    role: "VMI 운영본부",
+    contact: "영업·물류관리팀",
+    region: "경기 성남시 · 중앙물류센터",
+  },
+};
+
+// 거래처 풀: 상세 3곳(위 ACCOUNTS와 id 연결) + 요약형 9곳
+// status: healthy | watch | risk  (본사 관점 종합 신호)
+// monthlyRevenue: 월 매출(원), openIssues: 미처리 문의 수
+const FLEET = [
+  { id:"hy-univ",      name:"한양대학교병원",   type:"대학병원", tier:"univ",
+    region:"서울 성동구", skus:10, risk:3, watch:3, monthlyRevenue:8_420_000,
+    turnover:9.2, fillRate:0.985, openIssues:1, status:"watch", detailed:true },
+  { id:"semyung-2",    name:"세명정형외과병원", type:"2차병원", tier:"secondary",
+    region:"경기 안양시", skus:10, risk:2, watch:2, monthlyRevenue:3_180_000,
+    turnover:7.4, fillRate:0.972, openIssues:0, status:"watch", detailed:true },
+  { id:"mirae-clinic", name:"미래정형외과의원", type:"개인의원", tier:"clinic",
+    region:"부산 해운대구", skus:8, risk:2, watch:1, monthlyRevenue:940_000,
+    turnover:6.1, fillRate:0.958, openIssues:0, status:"risk", detailed:true },
+
+  { id:"c-004", name:"서울백년병원",       type:"2차병원", tier:"secondary",
+    region:"서울 강서구", skus:14, risk:0, watch:1, monthlyRevenue:4_260_000,
+    turnover:8.1, fillRate:0.991, openIssues:0, status:"healthy" },
+  { id:"c-005", name:"우리정형외과의원",   type:"개인의원", tier:"clinic",
+    region:"대구 수성구", skus:7,  risk:1, watch:2, monthlyRevenue:1_120_000,
+    turnover:5.7, fillRate:0.949, openIssues:2, status:"risk" },
+  { id:"c-006", name:"한빛종합병원",       type:"2차병원", tier:"secondary",
+    region:"인천 남동구", skus:16, risk:0, watch:0, monthlyRevenue:5_010_000,
+    turnover:8.8, fillRate:0.994, openIssues:0, status:"healthy" },
+  { id:"c-007", name:"강남연세재활의원",   type:"개인의원", tier:"clinic",
+    region:"서울 강남구", skus:9,  risk:0, watch:1, monthlyRevenue:1_680_000,
+    turnover:6.9, fillRate:0.977, openIssues:1, status:"healthy" },
+  { id:"c-008", name:"부산365병원",        type:"2차병원", tier:"secondary",
+    region:"부산 부산진구", skus:13, risk:2, watch:1, monthlyRevenue:3_540_000,
+    turnover:7.0, fillRate:0.961, openIssues:1, status:"watch" },
+  { id:"c-009", name:"참사랑정형외과",     type:"개인의원", tier:"clinic",
+    region:"광주 서구", skus:6,  risk:1, watch:0, monthlyRevenue:760_000,
+    turnover:5.2, fillRate:0.945, openIssues:0, status:"risk" },
+  { id:"c-010", name:"대전선병원",         type:"대학병원", tier:"univ",
+    region:"대전 중구", skus:18, risk:1, watch:2, monthlyRevenue:7_890_000,
+    turnover:9.0, fillRate:0.988, openIssues:0, status:"watch" },
+  { id:"c-011", name:"굿모닝재활의원",     type:"개인의원", tier:"clinic",
+    region:"경기 수원시", skus:8,  risk:0, watch:0, monthlyRevenue:1_340_000,
+    turnover:7.2, fillRate:0.982, openIssues:0, status:"healthy" },
+  { id:"c-012", name:"제일정형외과병원",   type:"2차병원", tier:"secondary",
+    region:"울산 남구", skus:12, risk:0, watch:1, monthlyRevenue:2_960_000,
+    turnover:7.8, fillRate:0.979, openIssues:1, status:"healthy" },
+];
+
+// 전체 거래처(데모 대표 외 나머지) 집계 — 대시보드 총계용
+const FLEET_TOTALS = {
+  totalAccounts: 1500,        // 전체 거래처 수
+  activeThisMonth: 1418,      // 이번 달 발주 발생 거래처
+  monthlyRevenue: 1_284_000_000, // 이번 달 누적 매출(원)
+  avgFillRate: 0.976,         // 평균 발주 충족률
+  wasteReduction: 0.34,       // 폐기 절감률(전년 대비)
+  openIssues: 27,             // 전체 미처리 문의
+};
+
+// SKU별 수요·운영 지표(본사 제품 분석용)
+const SKU_METRICS = [
+  { sku:"UNI-GZ-7100", monthlyQty:214_000, trend:+0.08, accounts:1290, turnover:11.2, wasteRate:0.03, recWins:142 },
+  { sku:"UNI-CB-3040", monthlyQty: 48_600, trend:+0.12, accounts: 870, turnover: 9.4, wasteRate:0.05, recWins:98 },
+  { sku:"UNI-EB-4006", monthlyQty: 61_200, trend:-0.03, accounts: 940, turnover: 8.9, wasteRate:0.04, recWins:76 },
+  { sku:"UNI-TP-7300", monthlyQty:132_500, trend:+0.02, accounts:1180, turnover:10.1, wasteRate:0.02, recWins:54 },
+  { sku:"UNI-KB-6100", monthlyQty:  3_100, trend:+0.21, accounts: 410, turnover: 4.8, wasteRate:0.09, recWins:63 },
+  { sku:"UNI-CS-4400", monthlyQty: 12_400, trend:+0.06, accounts: 520, turnover: 6.2, wasteRate:0.07, recWins:41 },
+  { sku:"UNI-AB-6300", monthlyQty:  5_900, trend:+0.15, accounts: 480, turnover: 5.1, wasteRate:0.08, recWins:37 },
+  { sku:"UNI-RE-6800", monthlyQty:  8_700, trend:+0.09, accounts: 610, turnover: 6.6, wasteRate:0.06, recWins:29 },
+];
+
+// 본사 인박스(거래처 → 본사 문의). 소통 기능의 본사측 뷰.
+const HQ_INBOX = [
+  { id:"m-101", account:"한양대학교병원",   cat:"품질 건의",   preview:"캐스트 밴드 절단면 거칠다는 병동 의견", time:"2시간 전", unread:true },
+  { id:"m-102", account:"강남연세재활의원", cat:"신제품 요청", preview:"경량 발목 보조기 취급 가능한지 문의", time:"5시간 전", unread:true },
+  { id:"m-103", account:"부산365병원",     cat:"배송/발주",   preview:"이번 주 정기 배송 일정 조정 요청",   time:"어제",     unread:false },
+  { id:"m-104", account:"우리정형외과의원", cat:"제품 문의",   preview:"압박 스타킹 사이즈 규격표 요청",     time:"어제",     unread:false },
+  { id:"m-105", account:"대전선병원",       cat:"품질 건의",   preview:"거즈 로트 일부 개봉 시 밀봉 불량",   time:"2일 전",   unread:false },
+];
+
+// AI 인사이트(본사 관제용 자동 생성 카드) — 데모용 규칙 기반 결과 예시
+const AI_INSIGHTS = [
+  { level:"risk",  title:"결품 위험 거래처 5곳",
+    body:"미래정형외과의원 등 5개 거래처에서 3일 내 결품이 예측됩니다. 정기 배송 전 선제 발주를 권장합니다.",
+    action:"대상 거래처 보기" },
+  { level:"opportunity", title:"교차판매 기회 · 재활군",
+    body:"재활 소모품 회전이 빠른 2차병원 8곳에 무릎 보조기(UNI-KB-6100) 도입 여지가 큽니다. 추천 성공률 최근 63건.",
+    action:"추천 캠페인 만들기" },
+  { level:"info", title:"폐기 절감 34% 달성",
+    body:"AI 발주 적용 거래처의 유효기간 경과 폐기가 전년 대비 34% 감소했습니다. 미적용 거래처 82곳 전환 여지.",
+    action:"미적용 거래처 보기" },
+];

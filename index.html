@@ -33,13 +33,18 @@
       <div id="loginError" class="login-error"></div>
 
       <div class="demo-hint">
-        <b>데모 계정</b> — 클릭하면 자동 입력됩니다.
+        <b>거래처 데모 계정</b> — 클릭하면 자동 입력됩니다.
         <div class="demo-row"><span>대학병원</span>
           <button onclick="fillDemo('hy-univ')">hy-univ / hanyang</button></div>
         <div class="demo-row"><span>2차병원</span>
           <button onclick="fillDemo('semyung-2')">semyung-2 / semyung</button></div>
         <div class="demo-row"><span>개인의원</span>
           <button onclick="fillDemo('mirae-clinic')">mirae-clinic / mirae</button></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
+          <b>본사(공급자) 콘솔</b>
+          <div class="demo-row"><span>유엔아이메디컬</span>
+            <button onclick="fillDemo('uni-hq')">uni-hq / uni-hq</button></div>
+        </div>
       </div>
     </div>
   </div>
@@ -167,10 +172,117 @@
     </main>
   </div>
 
+  <!-- ============ 본사(HQ) 콘솔 ============ -->
+  <div id="hqRoot" style="display:none">
+    <header class="topbar hq-topbar">
+      <div class="topbar-inner">
+        <div class="brand-mark hq-mark">HQ</div>
+        <div>
+          <div class="acct-name">유엔아이메디컬 · VMI 관제 콘솔</div>
+          <div class="acct-meta">VMI 운영본부 · 중앙물류센터</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="logout" onclick="logout()">로그아웃</button>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="overview" onclick="hqSwitchTab('overview')">관제 대시보드</button>
+        <button class="tab" data-tab="accounts" onclick="hqSwitchTab('accounts')">거래처 관리</button>
+        <button class="tab" data-tab="pipeline" onclick="hqSwitchTab('pipeline')">발주 파이프라인</button>
+        <button class="tab" data-tab="products" onclick="hqSwitchTab('products')">제품·수요 분석</button>
+        <button class="tab" data-tab="inbox" onclick="hqSwitchTab('inbox')">소통 인박스</button>
+      </nav>
+    </header>
+
+    <main class="main">
+      <!-- 관제 대시보드 -->
+      <section id="hq-overview" class="view active">
+        <h2 class="section">전체 거래처 관제</h2>
+        <p class="section-desc">1,500개 거래처의 재고·발주·매출을 한 화면에서 봅니다.</p>
+        <div class="stat-grid">
+          <div class="stat"><div class="num" id="hqStatAccounts">0</div><div class="lbl">전체 거래처</div></div>
+          <div class="stat"><div class="num" id="hqStatActive">0</div><div class="lbl">이번 달 활성</div></div>
+          <div class="stat"><div class="num" id="hqStatRev">₩0</div><div class="lbl">이번 달 매출</div></div>
+          <div class="stat"><div class="num" id="hqStatFill">0%</div><div class="lbl">평균 발주 충족률</div></div>
+        </div>
+
+        <h3 class="sub-h">AI 인사이트</h3>
+        <div class="ai-grid" id="hqInsights"></div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>주의가 필요한 거래처</h3></div>
+          <div class="table-scroll"><table>
+            <thead><tr><th>거래처</th><th style="text-align:right">결품 위험</th>
+              <th style="text-align:right">임박</th><th style="text-align:right">충족률</th><th>상태</th></tr></thead>
+            <tbody id="hqFlaggedRows"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- 거래처 관리 -->
+      <section id="hq-accounts" class="view">
+        <div id="hqAccountList">
+          <h2 class="section">거래처 관리</h2>
+          <p class="section-desc">상태별로 필터링하고, 거래처를 눌러 상세로 들어갑니다.</p>
+          <div class="chip-bar" id="hqFilterBar"></div>
+          <div class="panel">
+            <div class="table-scroll"><table>
+              <thead><tr><th>거래처</th><th style="text-align:right">품목수</th>
+                <th style="text-align:right">월 매출</th><th style="text-align:right">회전율</th>
+                <th style="text-align:right">충족률</th><th>상태</th></tr></thead>
+              <tbody id="hqAccountRows"></tbody>
+            </table></div>
+          </div>
+        </div>
+        <div id="hqAccountDetail" style="display:none"></div>
+      </section>
+
+      <!-- 발주 파이프라인 -->
+      <section id="hq-pipeline" class="view">
+        <h2 class="section">발주 파이프라인</h2>
+        <p class="section-desc">전 거래처의 발주 요청 → 배송 → 완료 흐름을 관리합니다.</p>
+        <div class="stat-grid" id="hqPipeStats"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>발주 처리 현황</h3></div>
+          <div class="table-scroll"><table>
+            <thead><tr><th>거래처</th><th>단계</th>
+              <th style="text-align:right">최근 발주일</th><th style="text-align:right">수량</th><th>처리</th></tr></thead>
+            <tbody id="hqPipeRows"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- 제품·수요 분석 -->
+      <section id="hq-products" class="view">
+        <h2 class="section">제품·수요 분석</h2>
+        <p class="section-desc">SKU별 출고·회전·폐기·추천 성과를 분석해 신제품 기획과 발주 계획에 활용합니다.</p>
+        <div class="stat-grid" id="hqProdSummary"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>SKU 성과</h3></div>
+          <div class="table-scroll"><table>
+            <thead><tr><th>제품</th><th>월 출고</th><th style="text-align:right">추세</th>
+              <th style="text-align:right">취급 거래처</th><th style="text-align:right">회전율</th>
+              <th style="text-align:right">폐기율</th></tr></thead>
+            <tbody id="hqProdRows"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- 소통 인박스 -->
+      <section id="hq-inbox" class="view">
+        <h2 class="section">거래처 소통 인박스</h2>
+        <p class="section-desc" id="hqInboxCount">—</p>
+        <div class="panel">
+          <div id="hqInboxList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script src="js/data.js"></script>
   <script src="js/engine.js"></script>
+  <script src="js/hq.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
