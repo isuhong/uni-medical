@@ -6,6 +6,7 @@
 
 let HQ_FILTER = "all";   // 거래처 상태 필터
 let HQ_DRILL = null;     // 드릴다운으로 선택된 거래처 id
+let HQ_THREAD = null;    // 인박스에서 열려 있는 대화 id
 
 function enterHQ(){
   document.getElementById("loginRoot").style.display = "none";
@@ -44,14 +45,6 @@ function hqOverview(){
       <div class="ai-title">${x.title}</div>
       <div class="ai-body">${x.body}</div>
       <button class="ai-action" onclick="hqSwitchTab('accounts')">${x.action} →</button>
-    </div>`).join("");
-
-  // AI 엔진 구성 — 어떤 모델이 무엇을 하는지 투명하게 명시
-  document.getElementById("hqEngine").innerHTML = AI_ENGINE.map(e=>`
-    <div class="engine-row">
-      <div class="engine-fn">${e.fn}</div>
-      <div class="engine-model">${e.model}</div>
-      <div class="engine-desc">${e.desc}</div>
     </div>`).join("");
 
   // 주의 필요 거래처 Top (risk 우선)
@@ -160,7 +153,7 @@ function hqAccountDetail(id){
     ${inv}
     <div class="detail-actions">
       <button class="btn" style="width:auto;padding:11px 20px" onclick="toast('선제 발주 제안을 거래처에 전송했습니다.')">선제 발주 제안</button>
-      <button class="btn ghost" style="width:auto;padding:11px 20px" onclick="hqSwitchTab('inbox')">메시지 보내기</button>
+      <button class="btn ghost" style="width:auto;padding:11px 20px" onclick="hqMessageAccount('${f.id}')">메시지 보내기</button>
     </div>`;
 }
 
@@ -237,21 +230,128 @@ function hqProducts(){
 
 /* ---------- 소통 인박스 ---------- */
 function hqInbox(){
+  // 열린 대화가 있으면 채팅창을 그린다
+  if (HQ_THREAD){ hqRenderThread(HQ_THREAD); return; }
+  document.getElementById("hqInboxThread").style.display = "none";
+  document.getElementById("hqInboxListWrap").style.display = "";
+
   const unread = HQ_INBOX.filter(m=>m.unread).length;
   document.getElementById("hqInboxCount").textContent =
     `미처리 ${unread}건 · 전체 ${FLEET_TOTALS.openIssues}건`;
   document.getElementById("hqInboxList").innerHTML = HQ_INBOX.map(m=>`
-    <div class="inbox-row ${m.unread?'unread':''}" onclick="toast('${m.account} 문의 스레드를 열었습니다.')">
+    <div class="inbox-row ${m.unread?'unread':''}" onclick="hqOpenThread('${m.id}')">
       <div class="inbox-main">
         <div class="inbox-top">
           <span class="inbox-acct">${m.account}</span>
           <span class="inbox-cat">${m.cat}</span>
           ${m.unread?'<span class="inbox-badge">NEW</span>':''}
         </div>
-        <div class="inbox-preview">${m.preview}</div>
+        <div class="inbox-preview">${escapeHtml(m.preview)}</div>
       </div>
       <div class="inbox-time">${m.time}</div>
     </div>`).join("");
+}
+
+// 인박스 항목 열기 — 거래처 채팅창으로 진입
+function hqOpenThread(id){
+  const m = HQ_INBOX.find(x=>x.id===id);
+  if (!m) return;
+  m.unread = false;
+  HQ_THREAD = id;
+  hqSwitchTab("inbox");
+}
+function hqCloseThread(){ HQ_THREAD = null; hqInbox(); }
+
+// 거래처 상세의 '메시지 보내기' → 해당 거래처 채팅창을 연다.
+// 기존 문의가 없으면 본사에서 시작하는 새 대화를 만든다.
+function hqMessageAccount(fleetId){
+  const f = FLEET.find(x=>x.id===fleetId);
+  if (!f) return;
+  let m = HQ_INBOX.find(x => x.accountId===fleetId || x.account===f.name);
+  if (!m){
+    m = { id:"m-"+fleetId, accountId:f.id, account:f.name, cat:"본사 발신",
+          preview:"본사에서 시작한 대화입니다.", time:"방금", unread:false, thread:[] };
+    HQ_INBOX.unshift(m);
+  }
+  HQ_THREAD = m.id;
+  hqSwitchTab("inbox");
+}
+
+// 채팅창 (거래처 소통창과 동일한 형태)
+function hqRenderThread(id){
+  const m = HQ_INBOX.find(x=>x.id===id);
+  if (!m){ hqCloseThread(); return; }
+  document.getElementById("hqInboxListWrap").style.display = "none";
+  const box = document.getElementById("hqInboxThread");
+  box.style.display = "";
+
+  const f = FLEET.find(x => x.id===m.accountId || x.name===m.account);
+  const meta = f ? `${f.type} · ${f.region}` : "거래처";
+
+  box.innerHTML = `
+    <button class="back-btn" onclick="hqCloseThread()">← 소통 인박스</button>
+    <div class="detail-head">
+      <div>
+        <div class="detail-name">${m.account} <span class="inbox-cat">${m.cat}</span></div>
+        <div class="detail-meta">${meta}</div>
+      </div>
+      ${f ? `<button class="mini-btn" style="margin-left:auto"
+               onclick="hqDrill('${f.id}')">거래처 상세 보기</button>` : ""}
+    </div>
+    <div class="panel">
+      <div class="msg-list" id="hqThreadMsgs"></div>
+      <div class="chat-input">
+        <textarea id="hqThreadText" placeholder="거래처에 보낼 내용을 입력하세요…"></textarea>
+        <button class="chat-send" onclick="hqSendMessage()">보내기</button>
+      </div>
+    </div>`;
+
+  hqRenderThreadMsgs(m);
+  const ta = document.getElementById("hqThreadText");
+  ta.addEventListener("keydown", e=>{
+    if (e.key==="Enter" && (e.metaKey || e.ctrlKey)) hqSendMessage();
+  });
+}
+
+function hqRenderThreadMsgs(m){
+  const el = document.getElementById("hqThreadMsgs");
+  if (!el) return;
+  if (!m.thread.length){
+    el.innerHTML = `<div class="empty">아직 주고받은 메시지가 없습니다.<br>
+      아래에 내용을 입력해 먼저 말을 건네보세요.</div>`;
+    return;
+  }
+  el.innerHTML = m.thread.map(x=>`
+    <div class="msg ${x.who==="hq" ? "me" : "them"}">
+      <div class="who">${x.name}</div>
+      <div>${escapeHtml(x.text)}</div>
+      <div class="time">${x.t}</div>
+    </div>`).join("");
+  el.scrollTop = el.scrollHeight;
+}
+
+function hqSendMessage(){
+  const m = HQ_INBOX.find(x=>x.id===HQ_THREAD);
+  const ta = document.getElementById("hqThreadText");
+  if (!m || !ta) return;
+  const text = ta.value.trim();
+  if (!text) return;
+
+  m.thread.push({ who:"hq", name:"유엔아이메디컬 CS", t:"방금", text });
+  m.preview = text;
+  m.time = "방금";
+  m.unread = false;
+  ta.value = "";
+  hqRenderThreadMsgs(m);
+  toast(`${m.account}에 메시지를 보냈습니다.`);
+
+  // 거래처 수신 확인(데모)
+  setTimeout(()=>{
+    m.thread.push({ who:"acct", name:`${m.account} 담당자`, t:"방금",
+      text:"확인했습니다. 내용 검토 후 회신드리겠습니다." });
+    m.preview = "확인했습니다. 내용 검토 후 회신드리겠습니다.";
+    if (HQ_THREAD === m.id) hqRenderThreadMsgs(m);
+  }, 900);
 }
 
 /* ---------- 공통 ---------- */
