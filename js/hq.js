@@ -16,6 +16,7 @@ function enterHQ(){
 }
 
 function hqSwitchTab(name){
+  hqStopLive();   // 다른 탭으로 나가면 실시간 갱신을 멈춘다
   document.querySelectorAll("#hqRoot .tab").forEach(t =>
     t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll("#hqRoot .view").forEach(v =>
@@ -23,6 +24,7 @@ function hqSwitchTab(name){
   if (name === "overview")  hqOverview();
   if (name === "accounts")  hqAccounts();
   if (name === "pipeline")  hqPipeline();
+  if (name === "stock")     hqStock();
   if (name === "products")  hqProducts();
   if (name === "inbox")     hqInbox();
 }
@@ -195,6 +197,213 @@ function hqPipeline(){
     </tr>`).join("");
 }
 function stageRank(s){ return {"발주 대기":0,"배송 중":1,"처리 완료":2}[s]; }
+
+/* ---------- 실시간 재고 관리 ----------
+   중앙물류센터(공급) 재고와 거래처 현장(수요) 재고를 한 화면에서 본다.
+   제품·수요 분석이 '월 단위 성과'를 본다면, 이 화면은 '지금 이 순간의 수급'을 본다.
+   데모에서는 출고 이벤트를 4초마다 시뮬레이션해 실시간 반영을 보여준다.
+   실서비스에서는 WMS 출고 트랜잭션과 거래처 재고 동기화 이벤트가 이 자리를 대체. */
+
+const WH_SAFETY_DAYS = 5;    // 물류센터 안전재고(일). 이보다 짧으면 보충 필요.
+const WH_TICK_MS     = 4000; // 출고 이벤트 시뮬레이션 주기
+
+let WH_FILTER    = "all";
+let WH_LIVE      = true;
+let WH_FEED      = [];       // 최근 출고 이벤트
+let WH_TODAY_OUT = 0;        // 오늘 누적 출고 수량
+let WH_TIMER     = null;
+let WH_SYNC_AT   = null;     // 마지막 동기화 시각
+
+function whAvail(w){ return Math.max(0, w.onHand - w.allocated); }
+function whCover(w){ return w.dailyOut > 0 ? whAvail(w) / w.dailyOut : Infinity; }
+function whStatus(w){
+  const cover = whCover(w);
+  if (whAvail(w) <= 0)            return "out";
+  if (cover < WH_SAFETY_DAYS)     return "now";
+  if (cover < WH_SAFETY_DAYS * 2) return "soon";
+  return "ok";
+}
+function whPill(s){
+  const label = { ok:"정상", soon:"보충 임박", now:"보충 필요", out:"재고 없음" }[s];
+  return `<span class="pill ${s}">${label}</span>`;
+}
+
+function hqStock(){
+  // 첫 진입 시 오늘 누적 출고를 하루 중반 수준으로 세팅
+  if (WH_TODAY_OUT === 0){
+    WH_TODAY_OUT = Math.round(WAREHOUSE.reduce((s,w)=>s+w.dailyOut,0) * 0.42);
+  }
+  if (!WH_FEED.length) WH_FEED = Array.from({length:4}, ()=>whMakeEvent(true));
+  WH_SYNC_AT = new Date();
+
+  hqWhFilterBar();
+  hqWhStats();
+  hqWhRows();
+  hqWhFeed();
+  hqFieldRows();
+  hqSyncBar();
+  hqStartLive();
+}
+
+function hqWhFilterBar(){
+  const counts = { all: WAREHOUSE.length };
+  ["now","soon","ok"].forEach(k =>
+    counts[k] = WAREHOUSE.filter(w => whStatus(w)===k || (k==="now" && whStatus(w)==="out")).length);
+  const label = { all:"전체", now:"보충 필요", soon:"보충 임박", ok:"정상" };
+  document.getElementById("hqWhFilterBar").innerHTML = ["all","now","soon","ok"]
+    .map(k=>`<button class="chip ${WH_FILTER===k?'on':''}" onclick="hqWhSetFilter('${k}')">
+        ${label[k]} <b>${counts[k]}</b></button>`).join("");
+}
+function hqWhSetFilter(k){ WH_FILTER = k; hqWhFilterBar(); hqWhRows(); }
+
+function hqWhStats(){
+  const short = WAREHOUSE.filter(w => ["now","out"].includes(whStatus(w))).length;
+  const fieldRisk = FLEET.reduce((s,f)=>s+f.risk, 0);
+  document.getElementById("hqStockStats").innerHTML = `
+    <div class="stat"><div class="num">${WAREHOUSE.length}</div><div class="lbl">물류센터 관리 SKU</div></div>
+    <div class="stat alert"><div class="num">${short}</div><div class="lbl">공급 부족 SKU</div></div>
+    <div class="stat"><div class="num" style="font-size:20px">${WH_TODAY_OUT.toLocaleString()}</div><div class="lbl">오늘 출고 수량</div></div>
+    <div class="stat warn"><div class="num">${fieldRisk}</div><div class="lbl">현장 결품 위험 품목</div></div>`;
+}
+
+function hqWhRows(){
+  const rows = WAREHOUSE
+    .map(w => ({ w, st: whStatus(w), cover: whCover(w) }))
+    .filter(r => WH_FILTER==="all"
+      || (WH_FILTER==="now" ? ["now","out"].includes(r.st) : r.st===WH_FILTER))
+    .sort((a,b)=> a.cover - b.cover)
+    .map(({w,st,cover})=>{
+      const p = findProduct(w.sku);
+      const barCls = st==="ok" ? "ok" : st==="soon" ? "soon" : "now";
+      const width = Math.max(4, Math.min(cover / 20, 1) * 100);
+      return `
+      <tr>
+        <td data-label="제품"><div class="pname">${p.name}</div>
+            <div class="sku">${w.sku} · ${p.cat}</div></td>
+        <td class="num-cell" data-label="가용 재고">${whAvail(w).toLocaleString()}
+            <div class="sku">보유 ${w.onHand.toLocaleString()} · 예약 ${w.allocated.toLocaleString()}</div></td>
+        <td class="num-cell" data-label="일 출고">${w.dailyOut.toLocaleString()}</td>
+        <td data-label="공급 커버리지">
+          <div class="bar-wrap"><div class="bar ${barCls}" style="width:${width}%"></div></div>
+          <div class="sku" style="text-align:right">${cover.toFixed(1)}일치</div>
+        </td>
+        <td class="num-cell" data-label="입고 예정">${w.inbound ? w.inbound.toLocaleString() : "—"}
+            <div class="sku">${w.inboundEta}</div></td>
+        <td data-label="상태">${whPill(st)}</td>
+        <td data-label="보충">${["now","out"].includes(st)
+          ? `<button class="mini-btn" onclick="hqReplenish('${w.sku}')">보충 발주</button>`
+          : '<span class="sku">—</span>'}</td>
+      </tr>`;
+    }).join("");
+  document.getElementById("hqWhRows").innerHTML = rows
+    || `<tr><td colspan="7"><div class="empty">해당 상태의 품목이 없습니다.</div></td></tr>`;
+}
+
+// 보충 발주 — 입고 예정 수량에 반영(데모)
+function hqReplenish(sku){
+  const w = WAREHOUSE.find(x=>x.sku===sku);
+  if (!w) return;
+  const qty = Math.ceil(w.dailyOut * 14 / 100) * 100;   // 2주치, 100단위 올림
+  w.inbound += qty;
+  w.inboundEta = "발주 접수";
+  hqWhRows();
+  toast(`${findProduct(sku).name} ${qty.toLocaleString()}개 보충 발주를 넣었습니다.`);
+}
+
+function hqWhFeed(){
+  document.getElementById("hqWhFeed").innerHTML = WH_FEED.map((e,i)=>`
+    <div class="feed-row ${i===0 && e.fresh ? 'fresh' : ''}">
+      <span class="feed-time">${e.time}</span>
+      <span class="feed-acct">${e.account}</span>
+      <span class="feed-sku">${e.name}</span>
+      <span class="feed-qty">−${e.qty.toLocaleString()}</span>
+    </div>`).join("");
+}
+
+// 출고 이벤트 1건 생성 — 출고량이 많은 SKU가 더 자주 뽑히도록 가중 추출
+function whMakeEvent(seed){
+  const total = WAREHOUSE.reduce((s,w)=>s+w.dailyOut,0);
+  let r = Math.random() * total, w = WAREHOUSE[0];
+  for (const cand of WAREHOUSE){ r -= cand.dailyOut; if (r <= 0){ w = cand; break; } }
+  const f = FLEET[Math.floor(Math.random()*FLEET.length)];
+  const qty = Math.max(1, Math.round(w.dailyOut * (0.01 + Math.random()*0.04)));
+  const t = new Date(Date.now() - (seed ? Math.random()*600000 : 0));
+  return {
+    sku: w.sku, name: findProduct(w.sku).name, account: f.name, qty,
+    time: t.toTimeString().slice(0,8), fresh: !seed,
+  };
+}
+
+function hqStockTick(){
+  // 다른 탭이거나 로그아웃 상태면 스스로 멈춘다
+  const view = document.getElementById("hq-stock");
+  const root = document.getElementById("hqRoot");
+  if (!view || !view.classList.contains("active") || (root && root.style.display === "none")){
+    hqStopLive(); return;
+  }
+  const e = whMakeEvent(false);
+  const w = WAREHOUSE.find(x=>x.sku===e.sku);
+  w.onHand = Math.max(0, w.onHand - e.qty);
+  WH_TODAY_OUT += e.qty;
+  WH_FEED.unshift(e);
+  WH_FEED = WH_FEED.slice(0,6);
+  WH_SYNC_AT = new Date();
+
+  hqWhStats(); hqWhRows(); hqWhFeed(); hqSyncBar();
+}
+
+function hqSyncBar(){
+  const state = document.getElementById("hqSyncState");
+  const btn   = document.getElementById("hqSyncToggle");
+  if (!state || !btn) return;
+  const at = WH_SYNC_AT ? WH_SYNC_AT.toTimeString().slice(0,8) : "—";
+  state.innerHTML = WH_LIVE
+    ? `<span class="live-dot"></span>실시간 동기화 중 · 마지막 갱신 <b>${at}</b>`
+    : `<span class="live-dot off"></span>동기화 일시정지 · 마지막 갱신 <b>${at}</b>`;
+  btn.textContent = WH_LIVE ? "일시정지" : "다시 시작";
+}
+function hqToggleLive(){
+  WH_LIVE = !WH_LIVE;
+  WH_LIVE ? hqStartLive() : hqStopLive();
+  hqSyncBar();
+}
+function hqStartLive(){
+  hqStopLive();
+  if (WH_LIVE) WH_TIMER = setInterval(hqStockTick, WH_TICK_MS);
+}
+function hqStopLive(){
+  if (WH_TIMER){ clearInterval(WH_TIMER); WH_TIMER = null; }
+}
+
+// 거래처 현장 재고 — 실시간 연동 거래처의 발주 필요/결품 품목을 모아 본다
+function hqFieldRows(){
+  const alerts = [];
+  Object.entries(ACCOUNTS).forEach(([id, acc])=>{
+    analyzeAccount(acc)
+      .filter(x => x.status==="now" || x.status==="out")
+      .forEach(x => alerts.push({ id, name: acc.profile.name, x }));
+  });
+  alerts.sort((a,b)=> (a.x.daysLeft ?? 999) - (b.x.daysLeft ?? 999));
+
+  document.getElementById("hqFieldRows").innerHTML = alerts.length ? alerts.map(a=>`
+    <tr>
+      <td data-label="거래처"><div class="pname">${a.name}</div>
+          <div class="sku">${a.x.product.cat}</div></td>
+      <td data-label="제품"><div class="pname">${a.x.product.name}</div>
+          <div class="sku">${a.x.sku}</div></td>
+      <td class="num-cell" data-label="현재고">${a.x.stock} ${a.x.product.unit}</td>
+      <td class="num-cell" data-label="예상 소진">${a.x.daysLeft ?? "—"}일</td>
+      <td data-label="상태">${statusPill(a.x)}</td>
+      <td data-label="대응">
+        <button class="mini-btn" onclick="hqPropose('${a.id}','${a.x.sku}',${a.x.suggestQty})">선제 발주</button>
+      </td>
+    </tr>`).join("")
+    : `<tr><td colspan="6"><div class="empty">지금 대응이 필요한 현장 품목이 없습니다.</div></td></tr>`;
+}
+function hqPropose(accId, sku, qty){
+  const acc = ACCOUNTS[accId];
+  toast(`${acc.profile.name}에 ${findProduct(sku).name} ${qty}개 선제 발주를 제안했습니다.`);
+}
 
 /* ---------- 제품·수요 분석 ---------- */
 function hqProducts(){

@@ -210,6 +210,28 @@ const SKU_METRICS = [
   { sku:"UNI-RE-6800", monthlyQty:  8_700, trend:+0.09, accounts: 610, turnover: 6.6, wasteRate:0.06, recWins:29 },
 ];
 
+// 중앙물류센터 실시간 재고 (본사 창고)
+// onHand: 창고 보유 수량, allocated: 출고 예약(확정 발주 배정분),
+// dailyOut: 전 거래처 합산 일평균 출고량, inbound/inboundEta: 입고 예정 수량·일자
+const WAREHOUSE = [
+  { sku:"UNI-GZ-7100", onHand: 68_000, allocated: 12_400, dailyOut: 7_130, inbound: 40_000, inboundEta:"8/22" },
+  { sku:"UNI-TP-7300", onHand: 51_000, allocated:  8_200, dailyOut: 4_420, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-EB-4006", onHand:  9_800, allocated:  3_600, dailyOut: 2_040, inbound: 15_000, inboundEta:"8/21" },
+  { sku:"UNI-CB-3040", onHand: 22_400, allocated:  4_100, dailyOut: 1_620, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-EB-4010", onHand: 21_000, allocated:  3_100, dailyOut: 1_480, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-SC-1100", onHand: 18_900, allocated:  2_600, dailyOut: 1_240, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-CB-3020", onHand: 14_600, allocated:  2_300, dailyOut:   980, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-ST-2200", onHand: 11_200, allocated:  1_500, dailyOut:   760, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-CW-7500", onHand:  9_400, allocated:  1_200, dailyOut:   690, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-SP-5500", onHand:  3_900, allocated:    700, dailyOut:   520, inbound:  6_000, inboundEta:"8/24" },
+  { sku:"UNI-CS-4400", onHand:  5_200, allocated:    900, dailyOut:   413, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-RE-6800", onHand:  3_400, allocated:    500, dailyOut:   290, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-CW-4700", onHand:  1_900, allocated:    420, dailyOut:   340, inbound:  3_000, inboundEta:"8/23" },
+  { sku:"UNI-TB-6500", onHand:  2_600, allocated:    380, dailyOut:   250, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-AB-6300", onHand:    640, allocated:    180, dailyOut:   197, inbound:  2_000, inboundEta:"8/21" },
+  { sku:"UNI-KB-6100", onHand:  1_180, allocated:    240, dailyOut:   103, inbound:      0, inboundEta:"—"   },
+];
+
 // 본사 인박스(거래처 → 본사 문의). 소통 기능의 본사측 뷰.
 // thread: 실제 대화 로그. who = "acct"(거래처) | "hq"(유엔아이메디컬 CS)
 // preview / time / unread 는 목록 표시용이며, 대화가 오가면 갱신됩니다.
