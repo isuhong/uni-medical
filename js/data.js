@@ -210,26 +210,30 @@ const SKU_METRICS = [
   { sku:"UNI-RE-6800", monthlyQty:  8_700, trend:+0.09, accounts: 610, turnover: 6.6, wasteRate:0.06, recWins:29 },
 ];
 
-// 중앙물류센터 실시간 재고 (본사 창고)
-// onHand: 창고 보유 수량, allocated: 출고 예약(확정 발주 배정분),
-// dailyOut: 전 거래처 합산 일평균 출고량, inbound/inboundEta: 입고 예정 수량·일자
+// 중앙물류센터 재고 현황 (본사 창고)
+// 실제 운영 중인 '재고현황' 엑셀 시트와 같은 구성:
+//   stock(재고수량) · monthly(월별 출고량) → 사용량재고(최근 3개월) → 적정재고(×0.833)
+// stock 은 담당자가 실사 후 직접 입력하는 값이고,
+// orderNote(발주 필요) / inNote(입고 예정) 는 추천값이 채워지되 메모처럼 덮어쓸 수 있다.
+const WH_MONTHS = ["2026년 02월","2026년 03월","2026년 04월","2026년 05월","2026년 06월","2026년 07월"];
+
 const WAREHOUSE = [
-  { sku:"UNI-GZ-7100", onHand: 68_000, allocated: 12_400, dailyOut: 7_130, inbound: 40_000, inboundEta:"8/22" },
-  { sku:"UNI-TP-7300", onHand: 51_000, allocated:  8_200, dailyOut: 4_420, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-EB-4006", onHand:  9_800, allocated:  3_600, dailyOut: 2_040, inbound: 15_000, inboundEta:"8/21" },
-  { sku:"UNI-CB-3040", onHand: 22_400, allocated:  4_100, dailyOut: 1_620, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-EB-4010", onHand: 21_000, allocated:  3_100, dailyOut: 1_480, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-SC-1100", onHand: 18_900, allocated:  2_600, dailyOut: 1_240, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-CB-3020", onHand: 14_600, allocated:  2_300, dailyOut:   980, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-ST-2200", onHand: 11_200, allocated:  1_500, dailyOut:   760, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-CW-7500", onHand:  9_400, allocated:  1_200, dailyOut:   690, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-SP-5500", onHand:  3_900, allocated:    700, dailyOut:   520, inbound:  6_000, inboundEta:"8/24" },
-  { sku:"UNI-CS-4400", onHand:  5_200, allocated:    900, dailyOut:   413, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-RE-6800", onHand:  3_400, allocated:    500, dailyOut:   290, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-CW-4700", onHand:  1_900, allocated:    420, dailyOut:   340, inbound:  3_000, inboundEta:"8/23" },
-  { sku:"UNI-TB-6500", onHand:  2_600, allocated:    380, dailyOut:   250, inbound:      0, inboundEta:"—"   },
-  { sku:"UNI-AB-6300", onHand:    640, allocated:    180, dailyOut:   197, inbound:  2_000, inboundEta:"8/21" },
-  { sku:"UNI-KB-6100", onHand:  1_180, allocated:    240, dailyOut:   103, inbound:      0, inboundEta:"—"   },
+  { sku:"UNI-GZ-7100", stock: 612_000, monthly:[205_300, 221_400, 198_700, 226_100, 214_800, 209_500], inbound:      0, inboundEta:"" },
+  { sku:"UNI-TP-7300", stock: 298_000, monthly:[128_400, 135_600, 130_200, 139_800, 133_100, 136_400], inbound: 200_000, inboundEta:"8월 22일" },
+  { sku:"UNI-EB-4006", stock:  96_400, monthly:[ 63_800,  59_400,  62_100,  58_700,  60_900,  57_600], inbound: 120_000, inboundEta:"8월 21일" },
+  { sku:"UNI-CB-3040", stock: 168_000, monthly:[ 46_200,  49_800,  47_500,  51_300,  48_900,  50_400], inbound:      0, inboundEta:"" },
+  { sku:"UNI-EB-4010", stock: 121_000, monthly:[ 42_600,  45_100,  43_800,  46_200,  44_700,  45_900], inbound:      0, inboundEta:"" },
+  { sku:"UNI-SC-1100", stock: 143_000, monthly:[ 35_800,  38_200,  36_400,  39_100,  37_600,  38_500], inbound:      0, inboundEta:"" },
+  { sku:"UNI-CB-3020", stock:  82_000, monthly:[ 28_100,  30_200,  29_600,  31_400,  28_900,  30_700], inbound:      0, inboundEta:"" },
+  { sku:"UNI-ST-2200", stock:  76_000, monthly:[ 21_900,  23_400,  22_100,  24_300,  22_700,  23_600], inbound:      0, inboundEta:"" },
+  { sku:"UNI-CW-7500", stock:  61_000, monthly:[ 19_800,  21_300,  20_400,  22_100,  20_900,  21_600], inbound:      0, inboundEta:"" },
+  { sku:"UNI-CS-4400", stock:  41_000, monthly:[ 11_900,  12_800,  12_200,  13_100,  12_600,  12_900], inbound:      0, inboundEta:"" },
+  { sku:"UNI-SP-5500", stock:  33_500, monthly:[ 14_900,  16_200,  15_300,  16_800,  15_700,  16_400], inbound:  30_000, inboundEta:"8월 24일" },
+  { sku:"UNI-TB-6500", stock:  26_400, monthly:[  7_100,   7_800,   7_300,   8_100,   7_600,   7_900], inbound:      0, inboundEta:"" },
+  { sku:"UNI-RE-6800", stock:  24_600, monthly:[  8_300,   9_100,   8_600,   9_400,   8_800,   9_200], inbound:      0, inboundEta:"" },
+  { sku:"UNI-CW-4700", stock:  18_900, monthly:[  9_700,  10_600,  10_100,  11_000,  10_400,  10_800], inbound:  25_000, inboundEta:"8월 23일" },
+  { sku:"UNI-AB-6300", stock:   4_200, monthly:[  5_600,   6_100,   5_800,   6_300,   6_000,   6_200], inbound:  18_000, inboundEta:"8월 21일" },
+  { sku:"UNI-KB-6100", stock:       0, monthly:[  2_900,   3_200,   3_000,   3_400,   3_100,   3_300], inbound:      0, inboundEta:"" },
 ];
 
 // 본사 인박스(거래처 → 본사 문의). 소통 기능의 본사측 뷰.
