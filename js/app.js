@@ -89,6 +89,7 @@ function renderDashboard(){
           <div class="sku">${x.sku}</div></td>
       <td class="num-cell" data-label="현재고">${x.stock} ${x.product.unit}</td>
       <td class="num-cell" data-label="예상 소진">${x.daysLeft ?? "—"}일</td>
+      <td data-label="결품 위험">${riskMeter(x.stockoutProb)}</td>
       <td data-label="상태">${statusPill(x)}</td>
       <td class="num-cell" data-label="권장 발주일">${x.reorderDate ? fmtDate(x.reorderDate) : "—"}</td>
     </tr>`).join("");
@@ -333,6 +334,12 @@ function autoReply(cat){
 function statusPill(x){
   const label = { ok:"충분", soon:"발주 임박", now:"발주 필요", out:"결품" }[x.status];
   return `<span class="pill ${x.status}">${label}</span>`;
+}
+// [AI 데모] 결품 위험 확률 → 색상 배지. 실서비스: 분류 모델 예측 확률.
+function riskMeter(prob){
+  const pct = Math.round((prob||0)*100);
+  const cls = pct>=66 ? "now" : pct>=33 ? "soon" : "ok";
+  return `<span class="risk-badge ${cls}">${pct}%</span>`;
 }
 function refreshBadge(){
   const analyzed = analyzeAccount(SESSION.acc);

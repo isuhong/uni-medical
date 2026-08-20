@@ -24,14 +24,22 @@ function analyzeItem(item){
   const gap = Math.max(item.parLevel - item.stock, 0);
   const suggestQty = gap > 0 ? Math.ceil(gap / p.pack) * p.pack : 0;
 
+  // [AI 데모] 결품 위험 확률 — 실서비스에서는 XGBoost 등 분류 모델 출력.
+  // 여기서는 발주권고까지 남은 일수를 로지스틱으로 변환해 0~1 확률로 근사.
+  const stockoutProb = logistic(-(daysToReorder) / 2.2);   // 임박할수록 ↑
+
   return {
     ...item, product: p,
     daysLeft: isFinite(daysLeft) ? Math.round(daysLeft) : null,
     daysToReorder: isFinite(daysToReorder) ? Math.round(daysToReorder) : null,
     status, suggestQty,
+    stockoutProb: isFinite(daysToReorder) ? stockoutProb : 0,
     reorderDate: isFinite(daysToReorder) ? addDays(new Date(), daysToReorder) : null,
   };
 }
+
+// 로지스틱 함수 (0~1)
+function logistic(x){ return 1 / (1 + Math.exp(-x)); }
 
 function analyzeAccount(acc){
   return acc.inventory.map(analyzeItem)
@@ -62,6 +70,12 @@ function recommendProducts(acc, analyzed){
   const topCat = Object.entries(catUse).sort((a,b)=>b[1]-a[1])[0]?.[0];
 
   const recs = [];
+
+  // (0) [AI 데모] 협업 필터링 — "비슷한 거래처가 함께 쓰는 품목"
+  //     실서비스에서는 1,500개 거래처 실거래 행렬로 item-item 유사도를 계산.
+  //     데모에서는 같은 종별(tier) 거래처들의 품목 보유율로 근사.
+  const cf = collaborativeRec(acc, owned);
+  if (cf) recs.push(cf);
 
   // (1) 주력 카테고리의 미취급 제품
   CATALOG.filter(p => p.cat === topCat && !owned.has(p.sku))
@@ -94,6 +108,38 @@ function recommendProducts(acc, analyzed){
   // 중복 제거
   const seen = new Set();
   return recs.filter(r => !seen.has(r.product.sku) && seen.add(r.product.sku)).slice(0,3);
+}
+
+// 협업 필터링 근사: 같은 종별 거래처의 SKU 보유율이 높은데
+// 우리 거래처엔 없는 품목을 1건 추천 (item-item CF의 단순화)
+function collaborativeRec(acc, owned){
+  const myTier = acc.profile.tier;
+  const peers = Object.values(ACCOUNTS).filter(a =>
+    a.profile.tier === myTier && a !== acc &&
+    a.profile.name !== acc.profile.name);
+  const pool = peers.length ? peers : Object.values(ACCOUNTS);
+  if (!pool.length) return null;
+
+  // SKU별 보유 거래처 비율
+  const score = {};
+  pool.forEach(a => {
+    new Set(a.inventory.map(i=>i.sku)).forEach(sku => {
+      score[sku] = (score[sku]||0) + 1;
+    });
+  });
+  // 우리가 안 쓰는 것 중 보유율 최고
+  const cand = Object.entries(score)
+    .filter(([sku]) => !owned.has(sku))
+    .sort((a,b)=>b[1]-a[1])[0];
+  if (!cand) return null;
+
+  const p = findProduct(cand[0]);
+  const pct = Math.round(cand[1] / pool.length * 100);
+  const tierName = {univ:"대학병원", secondary:"2차병원", clinic:"개인의원"}[myTier] || "유사 거래처";
+  return {
+    product:p, tag:"유사 거래처 분석",
+    reason:`규모가 비슷한 ${tierName}의 ${pct}%가 ${p.name}를 함께 사용합니다. 도입 여지가 큰 품목입니다.`,
+  };
 }
 
 // ---- 유틸 ----------------------------------------------------------------

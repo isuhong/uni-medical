@@ -396,3 +396,44 @@ tr:last-child td{ border-bottom:none; }
   .inbox-preview{ white-space:normal; }
   .detail-actions .btn{ flex:1; }
 }
+
+/* ============ AI 요소 (양쪽 공용) ============ */
+.ai-badge{ font-size:11px; font-weight:700; letter-spacing:.02em; color:var(--pine);
+  background:var(--pine-soft); padding:3px 9px; border-radius:99px;
+  display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+.ai-badge::before{ content:""; width:6px; height:6px; border-radius:99px;
+  background:var(--pine); box-shadow:0 0 0 3px rgba(20,88,74,.15); }
+#hqRoot .ai-badge{ color:var(--navy); background:var(--navy-soft); }
+#hqRoot .ai-badge::before{ background:var(--navy); box-shadow:0 0 0 3px rgba(27,42,74,.15); }
+
+/* 결품 위험 확률 배지 */
+.risk-badge{ font-family:var(--mono); font-size:12px; font-weight:700;
+  padding:3px 8px; border-radius:7px; display:inline-block; }
+.risk-badge.ok{   color:var(--ok);   background:var(--ok-bg); }
+.risk-badge.soon{ color:var(--soon); background:var(--soon-bg); }
+.risk-badge.now{  color:var(--now);  background:var(--now-bg); }
+
+/* AI 방식 설명 노트 */
+.method-note{ display:flex; gap:12px; align-items:flex-start; padding:14px 16px;
+  background:var(--pine-soft); border:1px solid var(--line); border-radius:var(--radius);
+  margin-bottom:20px; font-size:13px; color:var(--ink-soft); line-height:1.55; }
+.method-note .ai-badge{ flex-shrink:0; margin-top:1px; }
+
+/* AI 엔진 구성 테이블 */
+.engine-panel{ overflow:hidden; }
+.engine-row{ display:grid; grid-template-columns:120px 200px 1fr; gap:16px;
+  padding:13px 18px; border-bottom:1px solid var(--line); align-items:start; }
+.engine-row:last-child{ border-bottom:none; }
+.engine-head{ background:#FBFAF7; font-size:11px; text-transform:uppercase;
+  letter-spacing:.03em; color:var(--ink-soft); font-weight:600; }
+.engine-fn{ font-weight:700; }
+.engine-model{ font-family:var(--mono); font-size:12.5px; color:var(--navy); font-weight:600; }
+.engine-desc{ font-size:13px; color:var(--ink-soft); line-height:1.5; }
+
+@media (max-width:760px){
+  .engine-row{ grid-template-columns:1fr; gap:4px; padding:14px; }
+  .engine-head{ display:none; }
+  .engine-fn::before{ content:"기능 · "; color:var(--ink-soft); font-weight:400; }
+  .engine-model{ font-size:12px; }
+  .method-note{ flex-direction:column; gap:8px; }
+}

@@ -83,12 +83,16 @@
           <div class="stat"><div class="num" id="statVal">₩0</div><div class="lbl">현재 재고 가치</div></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h3>소진 임박 품목</h3></div>
+          <div class="panel-head"><h3>소진 임박 품목</h3>
+            <span class="spacer"></span>
+            <span class="ai-badge">AI 예측</span>
+          </div>
           <div class="table-scroll">
             <table>
               <thead><tr>
                 <th>제품</th><th style="text-align:right">현재고</th>
-                <th style="text-align:right">예상 소진</th><th>상태</th><th>권장 발주일</th>
+                <th style="text-align:right">예상 소진</th>
+                <th style="text-align:right">결품 위험</th><th>상태</th><th>권장 발주일</th>
               </tr></thead>
               <tbody id="dashRows"></tbody>
             </table>
@@ -146,7 +150,12 @@
       <!-- 제품 추천 -->
       <section id="view-recommend" class="view">
         <h2 class="section">맞춤 제품 추천</h2>
-        <p class="section-desc">사용 패턴을 분석해 근거와 함께 신규·대체 제품을 제안합니다.</p>
+        <p class="section-desc">사용 패턴과 유사 거래처 데이터를 분석해 근거와 함께 제품을 제안합니다.</p>
+        <div class="method-note">
+          <span class="ai-badge">AI 추천 방식</span>
+          <span>협업 필터링(유사 거래처가 함께 쓰는 품목) · 사용 패턴 기반 교차/상향 판매를 결합한 하이브리드 추천입니다.
+          실서비스에서는 1,500개 거래처 실거래 데이터로 학습한 추천 모델이 이 자리를 대체합니다.</span>
+        </div>
         <div class="rec-strip" id="recStrip"></div>
       </section>
 
@@ -207,6 +216,16 @@
 
         <h3 class="sub-h">AI 인사이트</h3>
         <div class="ai-grid" id="hqInsights"></div>
+
+        <h3 class="sub-h">AI 엔진 구성</h3>
+        <div class="panel engine-panel">
+          <div class="engine-row engine-head">
+            <div class="engine-fn">기능</div>
+            <div class="engine-model">적용 모델</div>
+            <div class="engine-desc">설명</div>
+          </div>
+          <div id="hqEngine"></div>
+        </div>
 
         <div class="panel">
           <div class="panel-head"><h3>주의가 필요한 거래처</h3></div>

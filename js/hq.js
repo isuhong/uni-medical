@@ -46,6 +46,14 @@ function hqOverview(){
       <button class="ai-action" onclick="hqSwitchTab('accounts')">${x.action} →</button>
     </div>`).join("");
 
+  // AI 엔진 구성 — 어떤 모델이 무엇을 하는지 투명하게 명시
+  document.getElementById("hqEngine").innerHTML = AI_ENGINE.map(e=>`
+    <div class="engine-row">
+      <div class="engine-fn">${e.fn}</div>
+      <div class="engine-model">${e.model}</div>
+      <div class="engine-desc">${e.desc}</div>
+    </div>`).join("");
+
   // 주의 필요 거래처 Top (risk 우선)
   const flagged = [...FLEET].filter(f=>f.status!=="healthy")
     .sort((a,b)=> statusRank(b.status)-statusRank(a.status) || b.risk-a.risk)
@@ -113,16 +121,19 @@ function hqAccountDetail(id){
     const analyzed = analyzeAccount({inventory: real.inventory, profile: real.profile});
     inv = `
       <div class="panel">
-        <div class="panel-head"><h3>실시간 재고 (본사 열람)</h3></div>
+        <div class="panel-head"><h3>실시간 재고 (본사 열람)</h3>
+          <span class="spacer"></span><span class="ai-badge">AI 예측</span></div>
         <div class="table-scroll"><table>
           <thead><tr><th>제품</th><th style="text-align:right">현재고</th>
-            <th style="text-align:right">일사용</th><th style="text-align:right">예상 소진</th><th>상태</th></tr></thead>
+            <th style="text-align:right">일사용</th><th style="text-align:right">예상 소진</th>
+            <th style="text-align:right">결품 위험</th><th>상태</th></tr></thead>
           <tbody>${analyzed.slice(0,8).map(x=>`
             <tr>
               <td data-label="제품"><div class="pname">${x.product.name}</div><div class="sku">${x.sku}</div></td>
               <td class="num-cell" data-label="현재고">${x.stock} ${x.product.unit}</td>
               <td class="num-cell" data-label="일사용">${x.dailyUse}/일</td>
               <td class="num-cell" data-label="예상 소진">${x.daysLeft ?? "—"}일</td>
+              <td data-label="결품 위험">${riskMeter(x.stockoutProb)}</td>
               <td data-label="상태">${statusPill(x)}</td>
             </tr>`).join("")}</tbody>
         </table></div>
