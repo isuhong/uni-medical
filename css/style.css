@@ -279,6 +279,14 @@ tr:last-child td{ border-bottom:none; }
   td[data-label="분류"]{ padding-bottom:2px; }
   .qty-adjust input{ width:60px; }
 
+  /* 재고현황 시트: 품명은 한 줄로, 입력칸은 오른쪽에 붙인다 */
+  td[data-label="품명 및 규격"]{ display:block; }
+  td[data-label="품명 및 규격"]::before{ display:none; }
+  table.sheet td.col-num{ text-align:right; }
+  table.sheet td.memo-col{ background:none; }
+  .sheet-num{ width:110px; }
+  .note-input{ width:170px; }
+
   /* 장바구니 라인 → 세로 배치 */
   .cart-line{ flex-wrap:wrap; gap:8px 12px; padding:14px; position:relative; }
   .cart-line .info{ flex:1 1 100%; padding-right:34px; }
@@ -385,6 +393,32 @@ tr:last-child td{ border-bottom:none; }
 }
 @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
 @keyframes feedIn{ from{ opacity:0; transform:translateY(-5px); } to{ opacity:1; transform:none; } }
+
+/* 재고현황 시트 — 쓰던 엑셀과 같은 열 구성 */
+.sheet-legend{ font-size:12.5px; color:var(--ink-soft); line-height:1.6;
+  margin:-4px 0 14px; }
+.sheet-legend b{ color:var(--ink); font-weight:600; }
+.sheet-legend .memo-mark{ background:#FDF1E7; padding:1px 5px; border-radius:4px; color:#9A5B32; }
+
+table.sheet th{ vertical-align:bottom; }
+table.sheet th.col-num, table.sheet td.col-num{ text-align:right; }
+table.sheet td.col-num{ font-family:var(--mono); white-space:nowrap; }
+table.sheet th.year-head{ text-align:center; border-left:1px solid var(--line);
+  border-right:1px solid var(--line); }
+table.sheet th.memo-col{ background:#FDF1E7; color:#9A5B32; }
+table.sheet td.memo-col{ background:#FEF8F3; }
+table.sheet td.proper-cell{ color:var(--ink-soft); }
+table.sheet th.use3-head, table.sheet td.use3-cell{ color:#C0492F; }
+table.sheet td.use3-cell{ font-weight:600; }
+
+.sheet-num{ width:92px; text-align:right; padding:5px 8px; font-family:var(--mono);
+  font-size:13px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink); }
+.sheet-num:focus{ outline:2px solid var(--pine); outline-offset:1px; }
+.note-input{ width:170px; padding:5px 8px; font-family:var(--sans); font-size:12.5px;
+  border:1px solid #EBD3BF; border-radius:6px; background:#fff; color:var(--ink); }
+.note-input.rec{ color:#9A5B32; }          /* 아직 손대지 않은 추천값 */
+.note-input:focus{ outline:2px solid var(--pine); outline-offset:1px; }
+.note-input::placeholder{ color:#C4B3A5; }
 
 .feed-row{ display:flex; align-items:center; gap:12px; padding:11px 18px;
   border-bottom:1px solid var(--line); font-size:13px; }
