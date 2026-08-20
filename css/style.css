@@ -367,6 +367,38 @@ tr:last-child td{ border-bottom:none; }
 /* 제품 분석 막대 + 추세 */
 .bar-wrap{ height:8px; background:#EEEBE3; border-radius:99px; overflow:hidden; min-width:90px; }
 .bar{ height:100%; background:var(--navy); border-radius:99px; }
+.bar.ok{ background:var(--ok); } .bar.soon{ background:var(--soon); } .bar.now{ background:var(--now); }
+
+/* 실시간 재고 관리 */
+.sync-bar{ display:flex; align-items:center; gap:10px; margin-bottom:18px; padding:10px 14px;
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  font-size:13px; color:var(--ink-soft); }
+.sync-bar .spacer{ flex:1; }
+.sync-bar b{ font-family:var(--mono); color:var(--ink); font-weight:600; }
+.live-dot{ display:inline-block; width:8px; height:8px; border-radius:99px;
+  background:var(--ok); margin-right:7px; vertical-align:middle; }
+.live-dot.off{ background:var(--ink-soft); }
+@media (prefers-reduced-motion:no-preference){
+  .live-dot{ animation:pulse 1.8s ease-in-out infinite; }
+  .live-dot.off{ animation:none; }
+  .feed-row.fresh{ animation:feedIn .35s ease; }
+}
+@keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
+@keyframes feedIn{ from{ opacity:0; transform:translateY(-5px); } to{ opacity:1; transform:none; } }
+
+.feed-row{ display:flex; align-items:center; gap:12px; padding:11px 18px;
+  border-bottom:1px solid var(--line); font-size:13px; }
+.feed-row:last-child{ border-bottom:none; }
+.feed-time{ font-family:var(--mono); font-size:12px; color:var(--ink-soft); flex-shrink:0; }
+.feed-acct{ font-weight:600; flex-shrink:0; }
+.feed-sku{ color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.feed-qty{ margin-left:auto; font-family:var(--mono); font-weight:600; color:var(--now); flex-shrink:0; }
+
+@media (max-width:760px){
+  .sync-bar{ flex-wrap:wrap; }
+  .feed-row{ flex-wrap:wrap; gap:6px 10px; }
+  .feed-sku{ white-space:normal; }
+}
 .trend{ font-family:var(--mono); font-size:12px; font-weight:600; }
 .trend.up{ color:var(--ok); } .trend.down{ color:var(--now); }
 
