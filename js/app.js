@@ -17,6 +17,7 @@ function attemptLogin(id, pw){
   }
   // 깊은 복사로 세션 재고 확보 (원본 불변)
   SESSION = { id, acc: JSON.parse(JSON.stringify(acc)) };
+  CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
   if (!CHAT[id]) CHAT[id] = seedChat(SESSION.acc);
   showApp();
 }
@@ -72,12 +73,12 @@ function renderDashboard(){
   // 임박 품목 요약 테이블
   const rows = analyzed.slice(0,6).map(x => `
     <tr>
-      <td><div class="pname">${x.product.name}</div>
+      <td data-label="제품"><div class="pname">${x.product.name}</div>
           <div class="sku">${x.sku}</div></td>
-      <td class="num-cell">${x.stock} ${x.product.unit}</td>
-      <td class="num-cell">${x.daysLeft ?? "—"}일</td>
-      <td>${statusPill(x)}</td>
-      <td class="num-cell">${x.reorderDate ? fmtDate(x.reorderDate) : "—"}</td>
+      <td class="num-cell" data-label="현재고">${x.stock} ${x.product.unit}</td>
+      <td class="num-cell" data-label="예상 소진">${x.daysLeft ?? "—"}일</td>
+      <td data-label="상태">${statusPill(x)}</td>
+      <td class="num-cell" data-label="권장 발주일">${x.reorderDate ? fmtDate(x.reorderDate) : "—"}</td>
     </tr>`).join("");
   document.getElementById("dashRows").innerHTML = rows;
 }
@@ -87,10 +88,10 @@ function renderInventory(){
   const analyzed = analyzeAccount(SESSION.acc);
   const rows = analyzed.map(x => `
     <tr>
-      <td><span class="cat-tag">${x.product.cat}</span></td>
-      <td><div class="pname">${x.product.name}</div>
+      <td data-label="분류"><span class="cat-tag">${x.product.cat}</span></td>
+      <td data-label="제품"><div class="pname">${x.product.name}</div>
           <div class="sku">${x.sku}</div></td>
-      <td>
+      <td data-label="현재고 조정">
         <div class="qty-adjust">
           <button onclick="adjustStock('${x.sku}',-1)" aria-label="감소">–</button>
           <input type="number" value="${x.stock}" min="0"
@@ -98,9 +99,9 @@ function renderInventory(){
           <button onclick="adjustStock('${x.sku}',1)" aria-label="증가">+</button>
         </div>
       </td>
-      <td class="num-cell">${x.dailyUse}/일</td>
-      <td class="num-cell">${x.daysLeft ?? "—"}일</td>
-      <td>${statusPill(x)}</td>
+      <td class="num-cell" data-label="일 사용량">${x.dailyUse}/일</td>
+      <td class="num-cell" data-label="예상 소진">${x.daysLeft ?? "—"}일</td>
+      <td data-label="상태">${statusPill(x)}</td>
     </tr>`).join("");
   document.getElementById("invRows").innerHTML = rows;
 }
@@ -115,55 +116,132 @@ function setStock(sku, val){
 }
 
 /* ---------- 발주 추천 ---------- */
+// 장바구니(발주 카트). 발주 탭 진입 시 권장 발주안으로 초기 세팅.
+let CART = null;   // [{sku, qty}]
+
+function buildDefaultCart(){
+  const plan = buildReorderPlan(analyzeAccount(SESSION.acc));
+  return plan.map(i => ({ sku:i.sku, qty:i.qty }));
+}
+function cartLine(sku){ return CART.find(c => c.sku === sku); }
+
 function renderOrders(){
   const analyzed = analyzeAccount(SESSION.acc);
-  const plan = buildReorderPlan(analyzed);
-  const box = document.getElementById("orderPlan");
-
-  if (plan.length === 0){
-    box.innerHTML = `<div class="empty">지금 발주가 필요한 품목이 없습니다.<br>
-      임박 품목은 대시보드에서 확인할 수 있습니다.</div>`;
-  } else {
-    const total = plan.reduce((s,i)=>s+i.subtotal,0);
-    box.innerHTML =
-      plan.map(i=>`
-        <div class="order-line">
-          <div class="info">
-            <div class="pname">${i.name}</div>
-            <div class="sku">${i.sku}</div>
-          </div>
-          <div class="qty">${i.qty} ${i.unit} × ${won(i.price)}</div>
-          <div class="sub">${won(i.subtotal)}</div>
-        </div>`).join("") +
-      `<div class="order-foot">
-         <span style="color:var(--ink-soft);font-size:13px">권장 발주 합계</span>
-         <span class="order-total">${won(total)}</span>
-         <span class="spacer" style="flex:1"></span>
-         <button class="btn" style="width:auto;padding:10px 20px"
-                 onclick="placeOrder(${total})">발주 확정</button>
-       </div>`;
-  }
+  // 최초 진입 시에만 권장 발주안으로 채운다 (사용자가 비운 상태는 유지)
+  if (CART === null) CART = buildDefaultCart();
+  renderCart();
 
   // 예측 발주 일정 (임박순)
   const sched = analyzed.filter(x=>x.reorderDate).slice(0,8).map(x=>`
     <tr>
-      <td><div class="pname">${x.product.name}</div><div class="sku">${x.sku}</div></td>
-      <td class="num-cell">${x.daysLeft ?? "—"}일</td>
-      <td class="num-cell">${x.suggestQty} ${x.product.unit}</td>
-      <td>${x.reorderDate ? fmtDate(x.reorderDate) : "—"}</td>
-      <td>${statusPill(x)}</td>
+      <td data-label="제품"><div class="pname">${x.product.name}</div><div class="sku">${x.sku}</div></td>
+      <td class="num-cell" data-label="예상 소진">${x.daysLeft ?? "—"}일</td>
+      <td class="num-cell" data-label="권장 수량">${x.suggestQty} ${x.product.unit}</td>
+      <td data-label="권장 발주일">${x.reorderDate ? fmtDate(x.reorderDate) : "—"}</td>
+      <td data-label="상태">${statusPill(x)}</td>
     </tr>`).join("");
   document.getElementById("schedRows").innerHTML = sched;
+
+  // 품목 추가 드롭다운: 카트에 없는 전 카탈로그
+  const inCart = new Set(CART.map(c=>c.sku));
+  const opts = CATALOG.filter(p=>!inCart.has(p.sku))
+    .map(p=>`<option value="${p.sku}">${p.name} · ${p.sku}</option>`).join("");
+  const sel = document.getElementById("addItemSel");
+  sel.innerHTML = `<option value="">＋ 품목 추가…</option>` + opts;
 }
 
-function placeOrder(total){
-  const plan = buildReorderPlan(analyzeAccount(SESSION.acc));
-  plan.forEach(i => { const it=findInv(i.sku); if(it) it.stock += i.qty; });
+function renderCart(){
+  const box = document.getElementById("orderPlan");
+  if (CART.length === 0){
+    box.innerHTML = `<div class="empty">발주할 품목이 없습니다.<br>
+      아래에서 품목을 추가하거나, 권장 발주안을 다시 불러올 수 있습니다.
+      <div style="margin-top:14px">
+        <button class="btn ghost" style="width:auto;padding:9px 16px;display:inline-block"
+                onclick="resetCart()">권장 발주안 불러오기</button>
+      </div></div>`;
+    return;
+  }
+  let total = 0;
+  const lines = CART.map(c => {
+    const p = findProduct(c.sku);
+    const sub = c.qty * p.price; total += sub;
+    return `
+      <div class="cart-line">
+        <div class="info">
+          <div class="pname">${p.name}</div>
+          <div class="sku">${p.sku} · ${won(p.price)}/${p.unit} · 발주단위 ${p.pack}</div>
+        </div>
+        <div class="qty-adjust">
+          <button onclick="cartAdjust('${c.sku}',${-p.pack})" aria-label="감소">–</button>
+          <input type="number" min="0" value="${c.qty}"
+                 onchange="cartSet('${c.sku}', this.value)">
+          <button onclick="cartAdjust('${c.sku}',${p.pack})" aria-label="증가">+</button>
+        </div>
+        <div class="cart-sub">${won(sub)}</div>
+        <button class="cart-remove" onclick="cartRemove('${c.sku}')" aria-label="삭제">✕</button>
+      </div>`;
+  }).join("");
+
+  box.innerHTML = lines + `
+    <div class="order-foot">
+      <span style="color:var(--ink-soft);font-size:13px">발주 합계</span>
+      <span class="order-total">${won(total)}</span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn ghost" style="width:auto;padding:10px 16px"
+              onclick="resetCart()">권장안으로 초기화</button>
+      <button class="btn" style="width:auto;padding:10px 20px"
+              onclick="placeOrder()">발주 확정</button>
+    </div>`;
+}
+
+// 발주 단위(pack) 만큼 증감
+function cartAdjust(sku, delta){
+  const l = cartLine(sku); if(!l) return;
+  l.qty = Math.max(0, l.qty + delta);
+  if (l.qty === 0) cartRemove(sku); else renderCart();
+}
+function cartSet(sku, val){
+  const l = cartLine(sku); if(!l) return;
+  l.qty = Math.max(0, parseInt(val)||0);
+  if (l.qty === 0) cartRemove(sku); else renderCart();
+}
+function cartRemove(sku){
+  CART = CART.filter(c=>c.sku!==sku);
+  renderOrders();
+}
+function cartAddFromSelect(sku){
+  if (!sku) return;
+  if (!cartLine(sku)){
+    const p = findProduct(sku);
+    CART.push({ sku, qty: p.pack });   // 기본 1팩
+  }
+  renderOrders();
+  toast(`${findProduct(sku).name} 추가됨`);
+}
+function resetCart(){
+  CART = buildDefaultCart();
+  renderOrders();
+  toast("권장 발주안으로 초기화했습니다.");
+}
+
+function placeOrder(){
+  if (!CART || CART.length === 0){ toast("발주할 품목이 없습니다."); return; }
+  let total = 0;
+  CART.forEach(c => {
+    const p = findProduct(c.sku); total += c.qty * p.price;
+    const it = findInv(c.sku);
+    if (it) it.stock += c.qty;
+    else SESSION.acc.inventory.push({   // 카트에만 있던 신규 품목도 재고로 편입
+      sku:c.sku, stock:c.qty, dailyUse:0.5,
+      reorderPoint:Math.max(4,Math.round(p.pack/3)), parLevel:p.pack*2
+    });
+  });
   SESSION.acc.orderHistory.unshift({
     date: new Date().toISOString().slice(0,10),
-    items: plan.map(i=>[i.sku,i.qty])
+    items: CART.map(c=>[c.sku,c.qty])
   });
   toast(`발주가 접수되었습니다 · ${won(total)} (입고까지 약 ${LEAD_TIME_DAYS}일)`);
+  CART = buildDefaultCart();   // 발주 후 권장안으로 재설정
   renderOrders(); refreshBadge();
 }
 
@@ -273,4 +351,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
     t.addEventListener("click", ()=>switchTab(t.dataset.tab)));
   document.getElementById("logoutBtn").addEventListener("click", logout);
   document.getElementById("chatSend").addEventListener("click", sendMessage);
+  document.getElementById("addItemSel").addEventListener("change", function(){
+    cartAddFromSelect(this.value); this.value = "";
+  });
 });
