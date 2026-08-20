@@ -197,6 +197,7 @@
         <button class="tab active" data-tab="overview" onclick="hqSwitchTab('overview')">관제 대시보드</button>
         <button class="tab" data-tab="accounts" onclick="hqSwitchTab('accounts')">거래처 관리</button>
         <button class="tab" data-tab="pipeline" onclick="hqSwitchTab('pipeline')">발주 파이프라인</button>
+        <button class="tab" data-tab="stock" onclick="hqSwitchTab('stock')">실시간 재고 관리</button>
         <button class="tab" data-tab="products" onclick="hqSwitchTab('products')">제품·수요 분석</button>
         <button class="tab" data-tab="inbox" onclick="hqSwitchTab('inbox')">소통 인박스</button>
       </nav>
@@ -256,6 +257,47 @@
             <thead><tr><th>거래처</th><th>단계</th>
               <th style="text-align:right">최근 발주일</th><th style="text-align:right">수량</th><th>처리</th></tr></thead>
             <tbody id="hqPipeRows"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- 실시간 재고 관리 -->
+      <section id="hq-stock" class="view">
+        <h2 class="section">실시간 재고 관리</h2>
+        <p class="section-desc">중앙물류센터 보유 재고와 거래처 현장 재고를 함께 봅니다. 출고가 발생하면 즉시 반영됩니다.</p>
+
+        <div class="sync-bar">
+          <span id="hqSyncState"></span>
+          <span class="spacer"></span>
+          <button class="mini-btn" id="hqSyncToggle" onclick="hqToggleLive()">일시정지</button>
+        </div>
+
+        <div class="stat-grid" id="hqStockStats"></div>
+
+        <h3 class="sub-h">중앙물류센터 재고</h3>
+        <div class="chip-bar" id="hqWhFilterBar"></div>
+        <div class="panel">
+          <div class="table-scroll"><table>
+            <thead><tr><th>제품</th><th style="text-align:right">가용 재고</th>
+              <th style="text-align:right">일 출고</th><th>공급 커버리지</th>
+              <th style="text-align:right">입고 예정</th><th>상태</th><th>보충</th></tr></thead>
+            <tbody id="hqWhRows"></tbody>
+          </table></div>
+        </div>
+
+        <h3 class="sub-h">실시간 출고</h3>
+        <div class="panel">
+          <div id="hqWhFeed"></div>
+        </div>
+
+        <h3 class="sub-h">거래처 현장 재고 알림</h3>
+        <div class="panel">
+          <div class="panel-head"><h3>지금 대응이 필요한 품목</h3>
+            <span class="spacer"></span><span class="ai-badge">AI 예측</span></div>
+          <div class="table-scroll"><table>
+            <thead><tr><th>거래처</th><th>제품</th><th style="text-align:right">현재고</th>
+              <th style="text-align:right">예상 소진</th><th>상태</th><th>대응</th></tr></thead>
+            <tbody id="hqFieldRows"></tbody>
           </table></div>
         </div>
       </section>
