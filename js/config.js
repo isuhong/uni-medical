@@ -11,6 +11,6 @@
    ========================================================================= */
 
 const SUPABASE_CONFIG = {
-  url:     "여기에_PROJECT_URL",
-  anonKey: "여기에_ANON_KEY",
+  url:     "https://fynfingerpkuvcsgykze.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5bmZpbmdlcnBrdXZjc2d5a3plIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMDI5MDIsImV4cCI6MjEwMjc3ODkwMn0.nfJdWUt8tbVanh8C2EgNieLGG069xWraIQxBLEXm5Vk",
 };
