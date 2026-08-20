@@ -274,13 +274,24 @@
 
         <div class="stat-grid" id="hqStockStats"></div>
 
-        <h3 class="sub-h">중앙물류센터 재고</h3>
+        <h3 class="sub-h">중앙물류센터 재고 현황</h3>
+        <div class="sheet-legend">
+          <b>재고수량</b>은 실사한 수량을 직접 입력하는 칸입니다.
+          <b class="memo-mark">발주 필요</b>·<b class="memo-mark">입고 예정</b>에는 추천값이 들어가 있고,
+          그대로 지우고 메모처럼 고쳐 쓸 수 있습니다.
+          적정재고는 최근 3개월 사용량 × 0.833으로 자동 계산됩니다.
+        </div>
         <div class="chip-bar" id="hqWhFilterBar"></div>
         <div class="panel">
-          <div class="table-scroll"><table>
-            <thead><tr><th>제품</th><th style="text-align:right">가용 재고</th>
-              <th style="text-align:right">일 출고</th><th>공급 커버리지</th>
-              <th style="text-align:right">입고 예정</th><th>상태</th><th>보충</th></tr></thead>
+          <div class="panel-head"><h3>재고현황</h3>
+            <span class="spacer"></span>
+            <button class="mini-btn" onclick="whExportCsv()">엑셀로 내보내기</button>
+          </div>
+          <div class="table-scroll"><table class="sheet">
+            <thead>
+              <tr id="hqWhHeadYear"></tr>
+              <tr id="hqWhHead"></tr>
+            </thead>
             <tbody id="hqWhRows"></tbody>
           </table></div>
         </div>
