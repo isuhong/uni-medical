@@ -434,6 +434,18 @@ table.sheet td.use3-cell{ font-weight:600; }
 .ship-form input{ width:120px; text-align:right; font-family:var(--mono); }
 .ship-form button{ width:auto; padding:11px 22px; }
 
+/* 출고 내역 기간 지정 + 내보내기 */
+.ship-export{ display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  padding:11px 18px; border-bottom:1px solid var(--line); font-size:12.5px; }
+.ship-export .spacer{ flex:1; }
+.ship-export .export-label{ font-size:11px; font-weight:600; color:var(--ink-soft);
+  display:flex; align-items:center; gap:8px; }
+.ship-export .export-tilde{ color:var(--ink-soft); }
+.ship-export input[type="date"]{ padding:6px 9px; border:1px solid var(--line);
+  border-radius:8px; background:#fff; font-family:var(--mono); font-size:12.5px;
+  color:var(--ink); }
+.ship-export input[type="date"]:focus{ outline:2px solid var(--pine); outline-offset:1px; }
+
 .feed-row{ display:flex; align-items:center; gap:12px; padding:11px 18px;
   border-bottom:1px solid var(--line); font-size:13px; }
 .feed-row:last-child{ border-bottom:none; }
@@ -445,6 +457,8 @@ table.sheet td.use3-cell{ font-weight:600; }
 @media (max-width:760px){
   .sync-bar{ flex-wrap:wrap; }
   .ship-form{ flex-direction:column; align-items:stretch; }
+  .ship-export{ gap:6px 8px; }
+  .ship-export .spacer{ flex:1 1 100%; }
   .ship-form input, .ship-form .ship-sku{ width:auto; min-width:0; }
   .feed-row{ flex-wrap:wrap; gap:6px 10px; }
   .feed-sku{ white-space:normal; }
