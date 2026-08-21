@@ -33,17 +33,17 @@
       <div id="loginError" class="login-error"></div>
 
       <div class="demo-hint">
-        <b>거래처 데모 계정</b> — 클릭하면 자동 입력됩니다.
+        <b>거래처 데모 계정</b> — 클릭하면 ID가 채워집니다. 비밀번호는 담당자에게 문의하세요.
         <div class="demo-row"><span>대학병원</span>
-          <button onclick="fillDemo('hy-univ')">hy-univ / hanyang</button></div>
+          <button onclick="fillDemo('hy-univ')">hy-univ</button></div>
         <div class="demo-row"><span>2차병원</span>
-          <button onclick="fillDemo('semyung-2')">semyung-2 / semyung</button></div>
+          <button onclick="fillDemo('semyung-2')">semyung-2</button></div>
         <div class="demo-row"><span>개인의원</span>
-          <button onclick="fillDemo('mirae-clinic')">mirae-clinic / mirae</button></div>
+          <button onclick="fillDemo('mirae-clinic')">mirae-clinic</button></div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
           <b>본사(공급자) 콘솔</b>
           <div class="demo-row"><span>유엔아이메디컬</span>
-            <button onclick="fillDemo('uni-hq')">uni-hq / uni-hq</button></div>
+            <button onclick="fillDemo('uni-hq')">uni-hq</button></div>
         </div>
       </div>
     </div>
@@ -273,7 +273,8 @@
           <b>재고수량</b>은 실사한 수량을 직접 입력하는 칸입니다.
           <b class="memo-mark">발주 필요</b>·<b class="memo-mark">입고 예정</b>에는 추천값이 들어가 있고,
           그대로 지우고 메모처럼 고쳐 쓸 수 있습니다.
-          적정재고는 직전 완료 3개월 사용량 × 0.833으로 자동 계산됩니다. 당월은 아직 진행 중이라 빠집니다.
+          <b class="memo-mark">적정재고</b>는 직전 완료 3개월 사용량 × 0.833으로 자동 계산되며(당월 제외),
+          직접 지정할 수도 있습니다. 지정한 칸을 비우면 자동 계산으로 돌아갑니다.
         </div>
         <div class="chip-bar" id="hqWhFilterBar"></div>
         <div class="panel">

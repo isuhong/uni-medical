@@ -99,7 +99,7 @@ uni-medical/
 
 물류센터 재고 (실시간 재고 관리 화면)
   사용량재고 = 직전 완료 3개월 출고량 합   (당월은 아직 진행 중이라 제외)
-  적정재고   = 사용량재고 × 0.833
+  적정재고   = 사용량재고 × 0.833          (기본값. 담당자가 직접 지정하면 그 값을 쓴다)
   상태       = 재고 0 → 결품
                재고 < 적정재고 → 발주 필요
                재고 < 적정재고 × 1.2 → 발주 임박
@@ -214,9 +214,16 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 | 출고 등록 | 완료 | `shipStock` · `getShipments` · `getShippedToday` |
 | 소통 | 완료 | `getMessages` · `getInbox` · `sendMessage` · `markRead` · `watchMessages` |
 
-아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG` · `findProduct`),
-본사 화면의 집계값(`FLEET_TOTALS` · `AI_INSIGHTS`), 발주 파이프라인의 `ACCOUNTS`,
-로그인 화면의 데모 계정 자동입력(`fillDemo`).
+아직 `js/data.js` 에 남은 것: 제품 카탈로그(`CATALOG` · `findProduct`),
+본사 집계값(`FLEET_TOTALS` · `AI_INSIGHTS`), 제품·수요 분석의 `SKU_METRICS`,
+`ACCOUNTS`(발주 파이프라인 · engine.js 의 동종 거래처 비교 · 로그인 자동입력).
+쓰이지 않던 `FLEET` · `WAREHOUSE` · `WH_MONTHS` · `HQ_INBOX` 는 지웠다(004).
+죽은 전역을 남겨두면 나중에 집어 쓰고도 에러 없이 옛 가상 데이터가 뜬다.
+
+**비밀번호는 저장소에 두지 않는다.** `ACCOUNTS[].password` · `HQ_ACCOUNT.password` 와
+로그인 화면에 인쇄돼 있던 값을 지웠다. `fillDemo()` 는 ID 만 채운다.
+다만 git 이력과 이미 배포된 페이지에 남아 있으므로, **Supabase Auth 의 실제
+비밀번호를 바꿔야 실효가 있다.**
 본사 거래처 목록은 `HQ_FLEET`(= `API.getFleet()`)으로, 물류센터는 `WH_ITEMS` ·
 `WH_MONTH_LABELS` 로 바뀌었다. data.js 가 아직 로드되므로 전역 이름이 겹치지 않게
 새 이름을 썼다.
