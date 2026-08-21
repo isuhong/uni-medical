@@ -23,7 +23,6 @@ async function enterHQ(){
 }
 
 async function hqSwitchTab(name){
-  hqStopLive();   // 다른 탭으로 나가면 실시간 갱신을 멈춘다
   document.querySelectorAll("#hqRoot .tab").forEach(t =>
     t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll("#hqRoot .view").forEach(v =>
@@ -217,26 +216,24 @@ function stageRank(s){ return {"발주 대기":0,"배송 중":1,"처리 완료":
    품명 및 규격 · 재고수량 · 적정재고 · 발주 필요 · 입고 예정 · 사용량재고 · 월별 출고량
    - 재고수량: 실사 후 담당자가 직접 입력하는 칸
    - 발주 필요 / 입고 예정: 추천값이 채워지되 메모처럼 덮어쓸 수 있는 칸
-   - 출고는 4초마다 시뮬레이션되며, 실사 입력을 시작하면 동기화가 자동으로 멈춘다.
-     (실서비스에서는 WMS 출고 트랜잭션이 이 자리를 대체) */
+   - 출고: 담당자가 거래처·품목·수량을 골라 등록한다. 재고수량에서 빠지고
+     당월 출고량에 쌓인다. (실서비스에서는 WMS 출고 트랜잭션이 이 자리를 대체) */
 
-const WH_PROPER_RATIO = 0.833;  // 적정재고 = 최근 3개월 사용량 × 0.833 (엑셀 시트와 동일)
-const WH_TICK_MS      = 4000;   // 출고 이벤트 시뮬레이션 주기
+const WH_PROPER_RATIO = 0.833;  // 적정재고 = 사용량재고 × 0.833 (엑셀 시트와 동일)
 
 let WH_ITEMS        = [];   // API.getWarehouse() 결과. data.js 의 WAREHOUSE 를 대체한다.
 let WH_MONTH_LABELS = [];   // API.getWarehouseMonths() 결과. data.js 의 WH_MONTHS 를 대체한다.
 
 let WH_FILTER    = "all";
-let WH_LIVE      = true;
-let WH_FEED      = [];
-let WH_TODAY_OUT = 0;
-let WH_TIMER     = null;
-let WH_SYNC_AT   = null;
+let WH_SHIPMENTS = [];   // 최근 출고 이력
+let WH_TODAY_OUT = 0;    // 오늘 출고 수량 합계
 
 // ---- 계산 (엑셀 수식과 같은 정의) ----
-function whUse3(w){ return w.monthly.slice(-3).reduce((a,b)=>a+b,0); }   // 사용량재고(최근 3개월)
+// 사용량재고 = 직전 완료 3개월 출고량 합.
+// 배열 마지막은 당월이고 아직 안 끝났으므로 뺀다.
+function whUse3(w){ return w.monthly.slice(0,-1).reduce((a,b)=>a+b,0); }
 function whProper(w){ return Math.round(whUse3(w) * WH_PROPER_RATIO); }  // 적정재고
-function whDaily(w){ return Math.round(whUse3(w) / 90); }               // 일 평균 출고
+function whDaily(w){ return Math.round(whUse3(w) / 90); }   // 일 평균 출고
 function whStatus(w){
   const p = whProper(w);
   if (w.stock <= 0)      return "out";
@@ -272,29 +269,26 @@ async function hqStock(){
   try {
     WH_ITEMS        = await API.getWarehouse();
     WH_MONTH_LABELS = await API.getWarehouseMonths();
+    WH_TODAY_OUT    = await API.getShippedToday();
   } catch (e){
     WH_ITEMS = []; WH_MONTH_LABELS = [];
     toast("물류센터 재고를 불러오지 못했습니다.");
   }
-  if (WH_TODAY_OUT === 0){
-    WH_TODAY_OUT = Math.round(WH_ITEMS.reduce((s,w)=>s+whDaily(w),0) * 0.42);
-  }
-  if (!WH_FEED.length) WH_FEED = Array.from({length:4}, ()=>whMakeEvent(true)).filter(Boolean);
-  WH_SYNC_AT = new Date();
-
   hqWhHead();
   hqWhFilterBar();
   hqWhStats();
   hqWhRows();
-  hqWhFeed();
-  hqFieldRows();   // 재고 표를 막지 않도록 기다리지 않는다
-  hqSyncBar();
-  hqStartLive();
+  hqShipForm();
+  hqShipList();    // 아래 둘은 재고 표를 막지 않도록 기다리지 않는다
+  hqFieldRows();
 }
 
 // 엑셀처럼 연도 묶음 행 + 열 이름 행, 두 줄짜리 머리글
 function hqWhHead(){
-  const year = WH_MONTH_LABELS[0].slice(0,5);   // "2026년"
+  // 월 창이 해를 넘기면(예: 11월~2월) 두 해를 함께 적는다
+  const y0 = WH_MONTH_LABELS[0]?.slice(0,5) ?? "";
+  const y1 = WH_MONTH_LABELS[WH_MONTH_LABELS.length-1]?.slice(0,5) ?? "";
+  const year = y0 === y1 ? y0 : `${y0} ~ ${y1}`;
   document.getElementById("hqWhHeadYear").innerHTML =
     `<th colspan="6"></th><th colspan="${WH_MONTH_LABELS.length}" class="year-head">${year}</th><th></th>`;
   document.getElementById("hqWhHead").innerHTML = `
@@ -303,7 +297,7 @@ function hqWhHead(){
     <th class="col-num">적정재고</th>
     <th class="memo-col">발주 필요</th>
     <th class="memo-col">입고 예정</th>
-    <th class="col-num use3-head">사용량재고<br>(${WH_MONTH_LABELS.slice(-3).map(m=>m.slice(6,9)).join(", ")})</th>
+    <th class="col-num use3-head">사용량재고<br>(${WH_MONTH_LABELS.slice(0,-1).map(m=>m.slice(6,9)).join(", ")})</th>
     ${WH_MONTH_LABELS.map(m=>`<th class="col-num">${m.slice(6)} 출고량</th>`).join("")}
     <th>상태</th>`;
 }
@@ -342,7 +336,7 @@ function hqWhRows(){
             <div class="sku">${w.sku} · ${p.cat} · ${p.unit}</div></td>
         <td class="col-num" data-label="재고수량">
           <input class="sheet-num" type="text" inputmode="numeric" value="${whNum(w.stock)}"
-                 onfocus="whPauseForEntry()" onchange="whSetStock('${w.sku}', this.value)"
+                 onchange="whSetStock('${w.sku}', this.value)"
                  aria-label="${p.name} 재고수량">
         </td>
         <td class="col-num proper-cell" data-label="적정재고">${whNum(whProper(w))}</td>
@@ -438,84 +432,106 @@ async function whSetNote(sku, field, val){
   }
 }
 
-// 실사 입력을 시작하면 실시간 동기화를 멈춘다 (입력 중 숫자가 바뀌지 않도록)
-function whPauseForEntry(){
-  if (!WH_LIVE) return;
-  WH_LIVE = false; hqStopLive(); hqSyncBar();
-  toast("실사 입력 중에는 실시간 동기화를 멈춥니다. 상단에서 다시 시작할 수 있습니다.");
+/* ---- 출고 등록 ----
+   담당자가 거래처·품목·수량을 골라 등록하면 DB 함수 ship_stock 이
+   재고 차감 · 당월 출고량 누적 · 이력 남기기를 한 번에 처리한다. */
+
+function hqShipForm(){
+  const box = document.getElementById("hqShipForm");
+  if (!box) return;
+  const accs = HQ_FLEET.map(f=>`<option value="${f.id}">${f.name}</option>`).join("");
+  box.innerHTML = `
+    <div class="ship-form">
+      <label>거래처
+        <select id="shipAccount" class="ship-acct"><option value="">선택…</option>${accs}</select>
+      </label>
+      <label>품목
+        <select id="shipSku" class="ship-sku"><option value="">선택…</option></select>
+      </label>
+      <label>수량
+        <input id="shipQty" type="text" inputmode="numeric" placeholder="예: 500"
+               aria-label="출고 수량">
+      </label>
+      <button class="btn" id="shipBtn" onclick="hqShip()">출고 등록</button>
+    </div>`;
+  hqShipSkuOptions();
 }
 
-/* ---- 실시간 출고 ---- */
-function hqWhFeed(){
-  document.getElementById("hqWhFeed").innerHTML = WH_FEED.map((e,i)=>`
-    <div class="feed-row ${i===0 && e.fresh ? 'fresh' : ''}">
-      <span class="feed-time">${e.time}</span>
-      <span class="feed-acct">${e.account}</span>
-      <span class="feed-sku">${e.name}</span>
-      <span class="feed-qty">−${whNum(e.qty)}</span>
-    </div>`).join("");
+// 품목 목록은 현재고를 함께 보여준다. 출고 후에도 고른 품목을 유지한다.
+function hqShipSkuOptions(){
+  const sel = document.getElementById("shipSku");
+  if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = `<option value="">선택…</option>` + WH_ITEMS.map(w=>{
+    const p = findProduct(w.sku);
+    return `<option value="${w.sku}">${p.name} · 재고 ${whNum(w.stock)}</option>`;
+  }).join("");
+  sel.value = keep;
 }
 
-// 출고 이벤트 1건 — 출고량이 많은 SKU가 더 자주 뽑히도록 가중 추출
-function whMakeEvent(seed){
-  if (!WH_ITEMS.length) return null;
-  const total = WH_ITEMS.reduce((s,w)=>s+whDaily(w),0);
-  let r = Math.random() * total, w = WH_ITEMS[0];
-  for (const cand of WH_ITEMS){ r -= whDaily(cand); if (r <= 0){ w = cand; break; } }
-  const f = HQ_FLEET[Math.floor(Math.random()*HQ_FLEET.length)] || { name:"—" };
-  const qty = Math.max(1, Math.round(whDaily(w) * (0.01 + Math.random()*0.04)));
-  const t = new Date(Date.now() - (seed ? Math.random()*600000 : 0));
-  return { sku:w.sku, name:findProduct(w.sku).name, account:f.name, qty,
-           time:t.toTimeString().slice(0,8), fresh:!seed };
-}
+async function hqShip(){
+  const accSel = document.getElementById("shipAccount");
+  const skuSel = document.getElementById("shipSku");
+  const qtyIn  = document.getElementById("shipQty");
+  const btn    = document.getElementById("shipBtn");
+  if (!accSel || !skuSel || !qtyIn) return;
 
-function hqStockTick(){
-  const view = document.getElementById("hq-stock");
-  const root = document.getElementById("hqRoot");
-  if (!view || !view.classList.contains("active") || (root && root.style.display === "none")){
-    hqStopLive(); return;
+  const accountId = accSel.value, sku = skuSel.value;
+  const qty = parseInt(String(qtyIn.value).replace(/[^0-9]/g,""), 10) || 0;
+
+  if (!accountId){ toast("거래처를 선택해 주세요."); return; }
+  if (!sku){ toast("품목을 선택해 주세요."); return; }
+  if (qty <= 0){ toast("출고 수량을 입력해 주세요."); return; }
+
+  // 보내기 전에 한 번 거르고, 최종 판정은 DB 가 한다
+  const w = WH_ITEMS.find(x=>x.sku===sku);
+  if (w && w.stock < qty){
+    toast(`재고가 부족합니다. 현재고 ${whNum(w.stock)}개`);
+    return;
   }
-  const e = whMakeEvent(false);
-  if (!e){ hqStopLive(); return; }
-  const w = WH_ITEMS.find(x=>x.sku===e.sku);
-  w.stock = Math.max(0, w.stock - e.qty);
-  WH_TODAY_OUT += e.qty;
-  WH_FEED.unshift(e);
-  WH_FEED = WH_FEED.slice(0,6);
-  WH_SYNC_AT = new Date();
 
-  whRefreshRow(e.sku);
-  hqWhStats(); hqWhFeed(); hqSyncBar();
+  btn.disabled = true;
+  try {
+    await API.shipStock(accountId, sku, qty);
+
+    // 재고와 당월 출고량이 DB 에서 바뀌었으니 다시 읽어 화면을 맞춘다
+    WH_ITEMS     = await API.getWarehouse();
+    WH_TODAY_OUT = await API.getShippedToday();
+
+    qtyIn.value = "";
+    hqWhRows(); hqWhStats(); hqWhFilterBar(); hqShipSkuOptions();
+    await hqShipList();
+    toast(`${findProduct(sku).name} ${whNum(qty)}개를 출고 처리했습니다.`);
+  } catch (e){
+    toast(e.message || "출고 등록에 실패했습니다.");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
-function hqSyncBar(){
-  const state = document.getElementById("hqSyncState");
-  const btn   = document.getElementById("hqSyncToggle");
-  if (!state || !btn) return;
-  const at = WH_SYNC_AT ? WH_SYNC_AT.toTimeString().slice(0,8) : "—";
-  state.innerHTML = WH_LIVE
-    ? `<span class="live-dot"></span>실시간 동기화 중 · 마지막 갱신 <b>${at}</b>`
-    : `<span class="live-dot off"></span>동기화 멈춤 · 마지막 갱신 <b>${at}</b>`;
-  btn.textContent = WH_LIVE ? "일시정지" : "다시 시작";
-}
-function hqToggleLive(){
-  WH_LIVE = !WH_LIVE;
-  if (WH_LIVE){ hqStartLive(); hqWhRows(); }   // 재개 시 표를 최신 재고로 맞춘다
-  else hqStopLive();
-  hqSyncBar();
-}
-function hqStartLive(){
-  hqStopLive();
-  if (WH_LIVE) WH_TIMER = setInterval(hqStockTick, WH_TICK_MS);
-}
-function hqStopLive(){
-  if (WH_TIMER){ clearInterval(WH_TIMER); WH_TIMER = null; }
+async function hqShipList(){
+  const box = document.getElementById("hqShipRows");
+  if (!box) return;
+  try {
+    WH_SHIPMENTS = await API.getShipments(8);
+  } catch (e){
+    box.innerHTML = `<div class="empty">출고 이력을 불러오지 못했습니다.</div>`;
+    return;
+  }
+  box.innerHTML = WH_SHIPMENTS.length ? WH_SHIPMENTS.map(e=>`
+    <div class="feed-row">
+      <span class="feed-time">${new Date(e.at).toTimeString().slice(0,8)}</span>
+      <span class="feed-acct">${e.account}</span>
+      <span class="feed-sku">${findProduct(e.sku).name}</span>
+      <span class="feed-qty">−${whNum(e.qty)}</span>
+    </div>`).join("")
+    : `<div class="empty">아직 등록된 출고가 없습니다.</div>`;
 }
 
 /* ---- 엑셀(CSV)로 내보내기 — 쓰던 시트와 같은 열 순서 ---- */
 function whExportCsv(){
   const head = ["품명 및 규격","재고수량","적정재고","발주 필요","입고 예정",
-                `사용량재고(${WH_MONTH_LABELS.slice(-3).map(m=>m.slice(6,9)).join(", ")})`,
+                `사용량재고(${WH_MONTH_LABELS.slice(0,-1).map(m=>m.slice(6,9)).join(", ")})`,
                 ...WH_MONTH_LABELS.map(m=>`${m} 출고량`)];
   const rows = WH_ITEMS.map(w=>{
     const p = findProduct(w.sku);

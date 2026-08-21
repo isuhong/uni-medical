@@ -152,17 +152,31 @@ const API = (() => {
 
   /* ---------- 본사: 중앙물류센터 재고 ---------- */
 
+  // 표에 보일 월 = 직전 완료 3개월 + 당월.
+  // 사용량재고는 이 중 '당월을 뺀 3개월' 합이다 (당월은 아직 안 끝났다).
+  function warehouseMonthWindow(){
+    const now = new Date(), out = [];
+    for (let i = 3; i >= 0; i--){
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      out.push({ key:`${d.getFullYear()}-${mm}-01`, label:`${d.getFullYear()}년 ${mm}월` });
+    }
+    return out;
+  }
+
   // v_warehouse 뷰가 사용량재고·적정재고·상태까지 계산해서 준다.
   async function getWarehouse(){
     const rows = unwrap(await client().from("v_warehouse").select("*"));
     const monthly = unwrap(await client()
       .from("warehouse_monthly").select("*").order("month"));
 
+    const win = warehouseMonthWindow();
     const bySku = {};
-    monthly.forEach(m => { (bySku[m.sku] ||= []).push(m.qty); });
+    monthly.forEach(m => { (bySku[m.sku] ||= {})[m.month] = m.qty; });
 
     return rows.map(r => ({
-      sku:r.sku, stock:r.stock, monthly:bySku[r.sku] ?? [],
+      sku:r.sku, stock:r.stock,
+      monthly: win.map(w => bySku[r.sku]?.[w.key] ?? 0),
       use3:r.use3, proper:r.proper, status:r.status,
       inbound:r.inbound, inboundEta:r.inbound_eta ?? "",
       orderNote:r.order_note, orderNoteByUser:r.order_note_by_user,
@@ -172,10 +186,7 @@ const API = (() => {
 
   // 표 머리글용 월 이름. getWarehouse() 의 monthly 배열과 같은 순서다.
   async function getWarehouseMonths(){
-    const rows = unwrap(await client()
-      .from("warehouse_monthly").select("month").order("month"));
-    return [...new Set(rows.map(r => r.month))]
-      .map(m => `${m.slice(0,4)}년 ${m.slice(5,7)}월`);
+    return warehouseMonthWindow().map(w => w.label);
   }
 
   // 실사 입력
@@ -191,6 +202,36 @@ const API = (() => {
     unwrap(await client().from("warehouse_stock").update({
       [col]: text, [col + "_by_user"]: true, updated_at:new Date().toISOString(),
     }).eq("sku", sku));
+  }
+
+  /* ---------- 출고 등록 ---------- */
+
+  // 재고 차감 · 당월 출고량 누적 · 이력 남기기를 DB 함수가 한 번에 한다.
+  async function shipStock(accountId, sku, qty){
+    return unwrap(await client().rpc("ship_stock", {
+      p_account_id: accountId, p_sku: sku, p_qty: qty,
+    }));
+  }
+
+  async function getShipments(limit = 8){
+    const rows = unwrap(await client()
+      .from("shipments")
+      .select("id, account_id, sku, qty, shipped_on, created_at, accounts(name)")
+      .order("created_at", { ascending:false })
+      .limit(limit));
+    return rows.map(r => ({
+      id:r.id, sku:r.sku, qty:r.qty, shippedOn:r.shipped_on, at:r.created_at,
+      account: (Array.isArray(r.accounts) ? r.accounts[0] : r.accounts)?.name ?? r.account_id,
+    }));
+  }
+
+  // 오늘 출고 수량 합계 (상단 지표)
+  async function getShippedToday(){
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    const rows = unwrap(await client()
+      .from("shipments").select("qty").gte("created_at", midnight.toISOString()));
+    return rows.reduce((s,r)=> s + r.qty, 0);
   }
 
   /* ---------- 소통 ---------- */
@@ -288,6 +329,7 @@ const API = (() => {
     placeOrder, getOrders,
     getFleet, getSkuMetrics,
     getWarehouse, getWarehouseMonths, setWarehouseStock, setWarehouseNote,
+    shipStock, getShipments, getShippedToday,
     getMessages, getInbox, sendMessage, markRead,
     watchMessages, watchWarehouse,
   };
