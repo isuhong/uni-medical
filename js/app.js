@@ -126,13 +126,29 @@ function renderInventory(){
   document.getElementById("invRows").innerHTML = rows;
 }
 function findInv(sku){ return SESSION.acc.inventory.find(i=>i.sku===sku); }
-function adjustStock(sku, delta){
-  const it = findInv(sku); it.stock = Math.max(0, it.stock + delta);
+
+// 화면을 먼저 바꾸고 저장은 뒤따른다(입력 반응이 느려지지 않게).
+// 저장이 실패하면 이전 값으로 되돌리고 알린다.
+async function saveStock(sku, next){
+  const it = findInv(sku);
+  const prev = it.stock;
+  if (next === prev){ renderInventory(); return; }   // 표기만 정리
+
+  it.stock = next;
   renderInventory(); refreshBadge();
+  try {
+    await API.setStock(SESSION.id, sku, next);
+  } catch (e){
+    it.stock = prev;
+    renderInventory(); refreshBadge();
+    toast("재고 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+}
+function adjustStock(sku, delta){
+  saveStock(sku, Math.max(0, findInv(sku).stock + delta));
 }
 function setStock(sku, val){
-  const it = findInv(sku); it.stock = Math.max(0, parseInt(val)||0);
-  renderInventory(); refreshBadge();
+  saveStock(sku, Math.max(0, parseInt(val)||0));
 }
 
 /* ---------- 발주 추천 ---------- */
