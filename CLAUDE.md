@@ -209,7 +209,7 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 
 | 화면 | 상태 | 쓰는 API |
 |---|---|---|
-| 로그인 | 완료 | `login` · `getInventory` |
+| 로그인 | 완료 | `login` · `currentAccount` · `getInventory` · `getOrders` |
 | 거래처 재고 | 완료 | `setStock` |
 | 발주 | 완료 | `placeOrder` · `getOrders` |
 | 본사 거래처 목록 | 완료 | `getFleet` · `getInventory` |
@@ -222,6 +222,11 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 `ACCOUNTS`(발주 파이프라인 · engine.js 의 동종 거래처 비교 · 로그인 자동입력).
 쓰이지 않던 `FLEET` · `WAREHOUSE` · `WH_MONTHS` · `HQ_INBOX` 는 지웠다(004).
 죽은 전역을 남겨두면 나중에 집어 쓰고도 에러 없이 옛 가상 데이터가 뜬다.
+
+새로고침해도 로그인이 유지된다. `restoreSession()` 이 `API.currentAccount()` 로
+Supabase 세션을 확인하고, 있으면 그 계정으로 바로 들어간다. 확인하는 동안에는
+`#bootScreen` 이 화면을 덮어 로그인 화면이 깜빡이지 않게 한다.
+로그인과 세션 복구는 `enterAccount()` 를 함께 쓴다.
 
 **비밀번호는 저장소에 두지 않는다.** `ACCOUNTS[].password` · `HQ_ACCOUNT.password` 와
 로그인 화면에 인쇄돼 있던 값을 지웠다. `fillDemo()` 는 ID 만 채운다.
