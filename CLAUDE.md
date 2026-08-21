@@ -200,14 +200,17 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 |---|---|---|
 | 로그인 | 완료 | `login` · `getInventory` |
 | 거래처 재고 | 완료 | `setStock` |
-| 발주 | 남음 | `placeOrder` · `getOrders` |
+| 발주 | 완료 | `placeOrder` · `getOrders` |
 | 본사 거래처 목록 | 남음 | `getFleet` |
 | 실시간 재고 관리 | 남음 | `getWarehouse` · `setWarehouseStock` · `setWarehouseNote` |
 | 소통 | 남음 | `getMessages` · `getInbox` · `sendMessage` |
 
-아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG`), 발주 이력, 본사 화면 전체, 소통창.
-`addRecommended()` 와 `placeOrder()` 도 재고를 건드리지만 아직 메모리에만 반영된다.
-각각 제품 추천 · 발주 단계에서 함께 잇는다.
+아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG` · `findProduct`), 본사 화면 전체, 소통창.
+`addRecommended()` 의 재고 편입은 아직 메모리에만 반영된다. 제품 추천 단계에서 잇는다.
+
+발주분의 재고 반영은 DB 함수 `place_order` 가 맡는다. 재고 목록에 없던 품목도
+upsert 로 새로 편입한다 (`backend/migrations/001_place_order_upsert.sql`).
+스키마를 고칠 때는 `backend/migrations/` 에 번호 붙인 파일을 남기고 `schema.sql` 도 같이 맞춘다.
 
 전부 교체되면 `js/data.js` 를 지운다.
 
