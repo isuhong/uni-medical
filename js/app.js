@@ -307,15 +307,32 @@ function renderRecommend(){
       </div>
     </div>`).join("");
 }
-function addRecommended(sku){
+// 추천 제품을 재고 목록에 편입한다.
+// 발주 카트가 이미 만들어져 있으면 거기에도 권장 수량으로 함께 담는다.
+// (카트는 발주 탭 첫 진입에서 한 번만 만들어지므로, 넣어주지 않으면
+//  탭 옆 숫자만 늘고 장바구니에는 나타나지 않는다)
+async function addRecommended(sku){
   if (findInv(sku)){ toast("이미 재고 목록에 있는 품목입니다."); return; }
   const p = findProduct(sku);
-  SESSION.acc.inventory.push({
-    sku, stock:0, dailyUse:0.5,
-    reorderPoint:Math.max(4,Math.round(p.pack/3)), parLevel:p.pack*2
-  });
-  toast(`${p.name} 를 재고 목록에 추가했습니다.`);
+  const init = { stock:0, dailyUse:0.5,
+                 reorderPoint:Math.max(4, Math.round(p.pack/3)), parLevel:p.pack*2 };
+
+  SESSION.acc.inventory.push({ sku, ...init });
+  if (CART !== null && !CART.some(c => c.sku === sku)){
+    const x = analyzeAccount(SESSION.acc).find(i => i.sku === sku);
+    if (x && x.suggestQty > 0) CART.push({ sku, qty:x.suggestQty });
+  }
   refreshBadge();
+
+  try {
+    await API.addInventoryItem(SESSION.id, sku, init);
+    toast(`${p.name} 를 재고 목록과 발주 장바구니에 담았습니다.`);
+  } catch (e){
+    SESSION.acc.inventory = SESSION.acc.inventory.filter(i => i.sku !== sku);
+    if (CART !== null) CART = CART.filter(c => c.sku !== sku);
+    refreshBadge();
+    toast("품목을 담지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  }
 }
 
 /* ---------- 소통창 ---------- */
