@@ -18,22 +18,43 @@ async function attemptLogin(id, pw){
   err.textContent = "";
   btn.disabled = true;
   try {
-    const acc = await API.login(rawId, rawPw);
-
-    // 본사(HQ) 계정 분기 — 완전히 다른 콘솔로 진입
-    if (acc.isHQ){ SESSION = null; await enterHQ(); return; }   // 목록을 받아온 뒤 진입
-
-    // 대시보드·재고·발주 화면이 SESSION.acc.inventory 를 읽는다
-    acc.inventory = await API.getInventory(acc.id);
-    acc.orderHistory = await API.getOrders(acc.id);
-
-    SESSION = { id:acc.id, acc };
-    CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
-    showApp();
+    await enterAccount(await API.login(rawId, rawPw));
   } catch (e){
     err.textContent = e.message || "로그인에 실패했습니다.";
   } finally {
     btn.disabled = false;
+  }
+}
+
+// 로그인과 세션 복구가 함께 쓴다. 화면이 읽을 데이터를 받아 놓고 들어간다.
+async function enterAccount(acc){
+  // 본사(HQ) 계정 분기 — 완전히 다른 콘솔로 진입
+  if (acc.isHQ){ SESSION = null; await enterHQ(); return; }   // 목록을 받아온 뒤 진입
+
+  // 대시보드·재고·발주 화면이 SESSION.acc.inventory 를 읽는다
+  acc.inventory    = await API.getInventory(acc.id);
+  acc.orderHistory = await API.getOrders(acc.id);
+
+  SESSION = { id:acc.id, acc };
+  CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
+  showApp();
+}
+
+// 새로고침해도 로그인을 잇는다. Supabase 세션은 브라우저에 남아 있는데
+// 화면만 로그인으로 돌아가고 있었다.
+async function restoreSession(){
+  const boot  = document.getElementById("bootScreen");
+  const login = document.getElementById("loginRoot");
+  login.style.display = "none";
+  if (boot) boot.style.display = "";
+  try {
+    const acc = await API.currentAccount();
+    if (acc){ await enterAccount(acc); return; }
+    login.style.display = "";        // 이을 세션이 없으면 로그인 화면
+  } catch (e){
+    login.style.display = "";        // 못 이어도 로그인 화면으로
+  } finally {
+    if (boot) boot.style.display = "none";
   }
 }
 
@@ -455,4 +476,6 @@ window.addEventListener("DOMContentLoaded", ()=>{
   document.getElementById("addItemSel").addEventListener("change", function(){
     cartAddFromSelect(this.value); this.value = "";
   });
+
+  restoreSession();
 });
