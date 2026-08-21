@@ -78,6 +78,9 @@ uni-medical/
   출고 이력(`shipments`)은 지워지지 않는다. 화면 목록은 최근 10건만 보여주고,
   전체는 기간을 정해 CSV 로 내보낸다. 기간은 `created_at` 을 현지 시각 경계로 자른다
   (`shipped_on` 은 DB 기준 날짜라 이른 아침 건이 하루 밀린다).
+- **발주 파이프라인**은 거래처가 넣은 발주(`orders`)를 건별로 본다.
+  단계는 `orders.stage` 를 그대로 읽는다. 승인 → `배송 중`, 입고 완료 → `처리 완료`.
+  단계 변경은 본사만 가능하다(`orders_update` 정책이 `is_hq()`).
 - **소통 인박스**에서 거래처를 누르면 채팅창이 열리고, 거래처 상세의 '메시지 보내기'도 같은 채팅창으로 연결된다.
   거래처 소통창과 본사 인박스가 `messages` 한 테이블을 본다. 대화는 거래처당 하나다.
   양쪽이 실제로 주고받으므로 데모 자동응답은 없앴다. 본사가 답해야 거래처에 뜬다.
@@ -213,13 +216,15 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 | 거래처 재고 | 완료 | `setStock` |
 | 발주 | 완료 | `placeOrder` · `getOrders` |
 | 본사 거래처 목록 | 완료 | `getFleet` · `getInventory` |
+| 발주 파이프라인 | 완료 | `getOrderPipeline` · `setOrderStage` |
 | 실시간 재고 관리 | 완료 | `getWarehouse` · `getWarehouseMonths` · `setWarehouseStock` · `setWarehouseNote` |
 | 출고 등록 | 완료 | `shipStock` · `getShipments` · `getShipmentsRange` · `getShippedToday` |
 | 소통 | 완료 | `getMessages` · `getInbox` · `sendMessage` · `markRead` · `watchMessages` |
 
 아직 `js/data.js` 에 남은 것: 제품 카탈로그(`CATALOG` · `findProduct`),
 본사 집계값(`FLEET_TOTALS` · `AI_INSIGHTS`), 제품·수요 분석의 `SKU_METRICS`,
-`ACCOUNTS`(발주 파이프라인 · engine.js 의 동종 거래처 비교 · 로그인 자동입력).
+`ACCOUNTS`(engine.js 의 동종 거래처 비교 · 로그인 자동입력).
+`hq.js` 는 더 이상 `ACCOUNTS` 를 읽지 않는다.
 쓰이지 않던 `FLEET` · `WAREHOUSE` · `WH_MONTHS` · `HQ_INBOX` 는 지웠다(004).
 죽은 전역을 남겨두면 나중에 집어 쓰고도 에러 없이 옛 가상 데이터가 뜬다.
 
@@ -230,8 +235,8 @@ Supabase 세션을 확인하고, 있으면 그 계정으로 바로 들어간다.
 
 **비밀번호는 저장소에 두지 않는다.** `ACCOUNTS[].password` · `HQ_ACCOUNT.password` 와
 로그인 화면에 인쇄돼 있던 값을 지웠다. `fillDemo()` 는 ID 만 채운다.
-다만 git 이력과 이미 배포된 페이지에 남아 있으므로, **Supabase Auth 의 실제
-비밀번호를 바꿔야 실효가 있다.**
+Supabase Auth 의 실제 비밀번호는 저장소에 있던 값과 다르게 설정돼 있다.
+git 이력에 남은 값으로는 로그인되지 않는다.
 본사 거래처 목록은 `HQ_FLEET`(= `API.getFleet()`)으로, 물류센터는 `WH_ITEMS` ·
 `WH_MONTH_LABELS` 로 바뀌었다. data.js 가 아직 로드되므로 전역 이름이 겹치지 않게
 새 이름을 썼다.

@@ -249,13 +249,14 @@
       <!-- 발주 파이프라인 -->
       <section id="hq-pipeline" class="view">
         <h2 class="section">발주 파이프라인</h2>
-        <p class="section-desc">전 거래처의 발주 요청 → 배송 → 완료 흐름을 관리합니다.</p>
+        <p class="section-desc">전 거래처가 넣은 발주를 건별로 봅니다. 승인하면 배송 중으로, 입고 완료하면 처리 완료로 넘어갑니다.</p>
         <div class="stat-grid" id="hqPipeStats"></div>
         <div class="panel">
           <div class="panel-head"><h3>발주 처리 현황</h3></div>
           <div class="table-scroll"><table>
             <thead><tr><th>거래처</th><th>단계</th>
-              <th style="text-align:right">최근 발주일</th><th style="text-align:right">수량</th><th>처리</th></tr></thead>
+              <th style="text-align:right">발주일</th><th style="text-align:right">수량</th>
+              <th style="text-align:right">금액</th><th>처리</th></tr></thead>
             <tbody id="hqPipeRows"></tbody>
           </table></div>
         </div>
