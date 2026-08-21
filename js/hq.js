@@ -287,6 +287,7 @@ async function hqStock(){
   hqWhStats();
   hqWhRows();
   hqShipForm();
+  hqShipExportBar();
   hqShipList();    // 아래 둘은 재고 표를 막지 않도록 기다리지 않는다
   hqFieldRows();
 }
@@ -561,20 +562,89 @@ async function hqShip(){
   }
 }
 
+// 출고 이력은 지워지지 않는다. 목록은 최근 10건만 보여줄 뿐이다.
+// 전체는 기간을 정해 엑셀로 내보낸다.
+// 출고 이력은 날짜가 중요하다. 월/일 시:분 으로 적는다.
+function fmtStamp(iso){
+  const d = new Date(iso), p = n => String(n).padStart(2,"0");
+  return `${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function ymd(d){
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+
+// 기간 지정 + 엑셀 내보내기. 기본값은 이번 달 1일 ~ 오늘.
+function hqShipExportBar(){
+  const box = document.getElementById("hqShipExport");
+  if (!box) return;
+  const now  = new Date();
+  const from = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+  const to   = ymd(now);
+  box.innerHTML = `
+    <span class="sku">최근 10건</span>
+    <span class="spacer"></span>
+    <label class="export-label">기간
+      <input type="date" id="shipFrom" value="${from}" aria-label="시작일">
+    </label>
+    <span class="export-tilde">~</span>
+    <input type="date" id="shipTo" value="${to}" aria-label="종료일">
+    <button class="mini-btn" id="shipExportBtn" onclick="shipExportCsv()">엑셀로 내보내기</button>`;
+}
+
+async function shipExportCsv(){
+  const from = document.getElementById("shipFrom")?.value;
+  const to   = document.getElementById("shipTo")?.value;
+  const btn  = document.getElementById("shipExportBtn");
+  if (!from || !to){ toast("기간을 지정해 주세요."); return; }
+  if (from > to){ toast("시작일이 종료일보다 뒤입니다."); return; }
+
+  if (btn) btn.disabled = true;
+  try {
+    const rows = await API.getShipmentsRange(from, to);
+    if (!rows.length){ toast("해당 기간에 출고 내역이 없습니다."); return; }
+
+    const head = ["일자","시각","거래처","품명 및 규격","SKU","수량"];
+    const body = rows.map(e=>{
+      const p = findProduct(e.sku);
+      const d = new Date(e.at), pad = n => String(n).padStart(2,"0");
+      return [ ymd(d), `${pad(d.getHours())}:${pad(d.getMinutes())}`, e.account,
+               p ? `${p.name} [${p.unit}]` : e.sku, e.sku, e.qty ];
+    });
+    body.push(["합계","","","","", rows.reduce((s,e)=>s+e.qty,0)]);
+
+    const esc = v => `"${String(v).replace(/"/g,'""')}"`;
+    const csv = "\ufeff" + [head, ...body].map(r=>r.map(esc).join(",")).join("\r\n");
+    const name = `출고내역_${from}_${to}.csv`;
+
+    const url = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8;"}));
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast(`${name} 로 내보냈습니다. (${rows.length}건)`);
+  } catch (e){
+    toast("출고 내역을 불러오지 못했습니다.");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function hqShipList(){
   const box = document.getElementById("hqShipRows");
   if (!box) return;
   try {
-    WH_SHIPMENTS = await API.getShipments(8);
+    WH_SHIPMENTS = await API.getShipments(10);
   } catch (e){
     box.innerHTML = `<div class="empty">출고 이력을 불러오지 못했습니다.</div>`;
     return;
   }
   box.innerHTML = WH_SHIPMENTS.length ? WH_SHIPMENTS.map(e=>`
     <div class="feed-row">
-      <span class="feed-time">${new Date(e.at).toTimeString().slice(0,8)}</span>
+      <span class="feed-time">${fmtStamp(e.at)}</span>
       <span class="feed-acct">${e.account}</span>
-      <span class="feed-sku">${findProduct(e.sku).name}</span>
+      <span class="feed-sku">${findProduct(e.sku)?.name ?? e.sku}</span>
       <span class="feed-qty">−${whNum(e.qty)}</span>
     </div>`).join("")
     : `<div class="empty">아직 등록된 출고가 없습니다.</div>`;

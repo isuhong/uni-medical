@@ -220,16 +220,37 @@ const API = (() => {
     }));
   }
 
-  async function getShipments(limit = 8){
-    const rows = unwrap(await client()
-      .from("shipments")
-      .select("id, account_id, sku, qty, shipped_on, created_at, accounts(name)")
-      .order("created_at", { ascending:false })
-      .limit(limit));
-    return rows.map(r => ({
+  const SHIPMENT_COLS =
+    "id, account_id, sku, qty, shipped_on, created_at, accounts(name)";
+
+  function toShipment(r){
+    return {
       id:r.id, sku:r.sku, qty:r.qty, shippedOn:r.shipped_on, at:r.created_at,
       account: (Array.isArray(r.accounts) ? r.accounts[0] : r.accounts)?.name ?? r.account_id,
-    }));
+    };
+  }
+
+  async function getShipments(limit = 10){
+    const rows = unwrap(await client()
+      .from("shipments").select(SHIPMENT_COLS)
+      .order("created_at", { ascending:false })
+      .limit(limit));
+    return rows.map(toShipment);
+  }
+
+  // 기간별 출고 내역 (엑셀 내보내기용). from·to 는 "YYYY-MM-DD", 양끝 포함.
+  // shipped_on 은 DB 기준 날짜(UTC)라 이른 아침 건이 하루 밀린다.
+  // 화면에 보이는 날짜와 맞추려고 현지 시각 경계로 자른다.
+  async function getShipmentsRange(from, to){
+    const start = new Date(`${from}T00:00:00`);
+    const end   = new Date(`${to}T00:00:00`);
+    end.setDate(end.getDate() + 1);              // 종료일까지 포함
+    const rows = unwrap(await client()
+      .from("shipments").select(SHIPMENT_COLS)
+      .gte("created_at", start.toISOString())
+      .lt("created_at",  end.toISOString())
+      .order("created_at", { ascending:true }));
+    return rows.map(toShipment);
   }
 
   // 오늘 출고 수량 합계 (상단 지표)
@@ -336,7 +357,7 @@ const API = (() => {
     placeOrder, getOrders,
     getFleet, getSkuMetrics,
     getWarehouse, getWarehouseMonths, setWarehouseStock, setWarehouseProper, setWarehouseNote,
-    shipStock, getShipments, getShippedToday,
+    shipStock, getShipments, getShipmentsRange, getShippedToday,
     getMessages, getInbox, sendMessage, markRead,
     watchMessages, watchWarehouse,
   };
