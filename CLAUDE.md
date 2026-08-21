@@ -201,11 +201,14 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 | 로그인 | 완료 | `login` · `getInventory` |
 | 거래처 재고 | 완료 | `setStock` |
 | 발주 | 완료 | `placeOrder` · `getOrders` |
-| 본사 거래처 목록 | 남음 | `getFleet` |
+| 본사 거래처 목록 | 완료 | `getFleet` · `getInventory` |
 | 실시간 재고 관리 | 남음 | `getWarehouse` · `setWarehouseStock` · `setWarehouseNote` |
 | 소통 | 남음 | `getMessages` · `getInbox` · `sendMessage` |
 
-아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG` · `findProduct`), 본사 화면 전체, 소통창.
+아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG` · `findProduct`), 소통창,
+본사 화면의 집계값(`FLEET_TOTALS` · `AI_INSIGHTS`)과 물류센터(`WAREHOUSE`).
+본사 거래처 목록은 `HQ_FLEET`(= `API.getFleet()`)으로 바뀌었고, hq.js 의 다른 화면들도
+이 값을 함께 읽는다.
 `addRecommended()` 의 재고 편입은 아직 메모리에만 반영된다. 제품 추천 단계에서 잇는다.
 
 발주분의 재고 반영은 DB 함수 `place_order` 가 맡는다. 재고 목록에 없던 품목도
