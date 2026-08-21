@@ -111,7 +111,8 @@ const API = (() => {
       .from("orders")
       .select("id, ordered_on, stage, total, order_items(sku, qty)")
       .eq("account_id", accountId)
-      .order("ordered_on", { ascending:false }));
+      .order("ordered_on", { ascending:false })
+      .order("id", { ascending:false }));   // 같은 날 주문의 선후 구분
     return rows.map(o => ({
       id:o.id, date:o.ordered_on, stage:o.stage, total:o.total,
       items:o.order_items.map(i => [i.sku, i.qty]),

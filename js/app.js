@@ -268,13 +268,14 @@ async function placeOrder(){
   if (btn) btn.disabled = true;
 
   try {
-    await API.placeOrder(SESSION.id, CART.map(c => ({ sku:c.sku, qty:c.qty })));
+    const orderId = await API.placeOrder(SESSION.id, CART.map(c => ({ sku:c.sku, qty:c.qty })));
 
     SESSION.acc.inventory    = await API.getInventory(SESSION.id);
     SESSION.acc.orderHistory = await API.getOrders(SESSION.id);
 
-    const last = SESSION.acc.orderHistory[0];
-    toast(`발주가 접수되었습니다 · ${won(last ? last.total : 0)} (입고까지 약 ${LEAD_TIME_DAYS}일)`);
+    // 방금 만든 주문을 id 로 집는다 (같은 날 주문이 여럿일 수 있다)
+    const placed = SESSION.acc.orderHistory.find(o => Number(o.id) === Number(orderId));
+    toast(`발주가 접수되었습니다 · ${won(placed ? placed.total : 0)} (입고까지 약 ${LEAD_TIME_DAYS}일)`);
 
     CART = buildDefaultCart();   // 반영된 재고 기준으로 권장안 재설정
     renderOrders(); refreshBadge();   // 버튼은 여기서 다시 그려진다
