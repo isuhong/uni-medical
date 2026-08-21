@@ -170,6 +170,14 @@ const API = (() => {
     }));
   }
 
+  // 표 머리글용 월 이름. getWarehouse() 의 monthly 배열과 같은 순서다.
+  async function getWarehouseMonths(){
+    const rows = unwrap(await client()
+      .from("warehouse_monthly").select("month").order("month"));
+    return [...new Set(rows.map(r => r.month))]
+      .map(m => `${m.slice(0,4)}년 ${m.slice(5,7)}월`);
+  }
+
   // 실사 입력
   async function setWarehouseStock(sku, stock){
     unwrap(await client().from("warehouse_stock").update({
@@ -279,7 +287,7 @@ const API = (() => {
     getInventory, setStock, addInventoryItem,
     placeOrder, getOrders,
     getFleet, getSkuMetrics,
-    getWarehouse, setWarehouseStock, setWarehouseNote,
+    getWarehouse, getWarehouseMonths, setWarehouseStock, setWarehouseNote,
     getMessages, getInbox, sendMessage, markRead,
     watchMessages, watchWarehouse,
   };
