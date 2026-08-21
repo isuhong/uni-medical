@@ -71,6 +71,10 @@ uni-medical/
 - **실시간 재고 관리**는 실제로 쓰던 `재고현황` 엑셀 시트를 그대로 옮긴 화면이다.
   열 순서(품명 및 규격 → 재고수량 → 적정재고 → 발주 필요 → 입고 예정 → 사용량재고 → 월별 출고량)를 바꾸지 않는다.
   담당자가 재고수량을 직접 입력하고, 발주 필요·입고 예정 칸은 추천값이 채워지되 메모로 덮어쓸 수 있다.
+  월별 출고량 열은 **직전 완료 3개월 + 당월** 네 달만 보여준다. 달이 바뀌면 창이 저절로 밀린다.
+- **출고 등록**(같은 화면)에서 거래처·품목·수량을 고르면 DB 함수 `ship_stock` 이
+  재고 차감 · 당월 출고량 누적 · 이력 기록을 한 번에 처리한다.
+  거래처 발주(`place_order`)와는 아직 연결하지 않았다. 물류센터 재고는 이 등록으로만 줄어든다.
 - **소통 인박스**에서 거래처를 누르면 채팅창이 열리고, 거래처 상세의 '메시지 보내기'도 같은 채팅창으로 연결된다.
 
 ---
@@ -90,7 +94,7 @@ uni-medical/
                  그 외 → 충분
 
 물류센터 재고 (실시간 재고 관리 화면)
-  사용량재고 = 최근 3개월 출고량 합
+  사용량재고 = 직전 완료 3개월 출고량 합   (당월은 아직 진행 중이라 제외)
   적정재고   = 사용량재고 × 0.833
   상태       = 재고 0 → 결품
                재고 < 적정재고 → 발주 필요
@@ -203,6 +207,7 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 | 발주 | 완료 | `placeOrder` · `getOrders` |
 | 본사 거래처 목록 | 완료 | `getFleet` · `getInventory` |
 | 실시간 재고 관리 | 완료 | `getWarehouse` · `getWarehouseMonths` · `setWarehouseStock` · `setWarehouseNote` |
+| 출고 등록 | 완료 | `shipStock` · `getShipments` · `getShippedToday` |
 | 소통 | 남음 | `getMessages` · `getInbox` · `sendMessage` |
 
 아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG` · `findProduct`), 소통창,
@@ -211,8 +216,12 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 `WH_MONTH_LABELS` 로 바뀌었다. data.js 가 아직 로드되므로 전역 이름이 겹치지 않게
 새 이름을 썼다.
 
-실시간 재고 관리 화면의 4초 출고 시뮬레이션은 메모리에서만 돈다. DB 에 쓰는 것은
-실사 입력(`setWarehouseStock`)과 메모(`setWarehouseNote`) 뿐이다.
+4초 출고 시뮬레이션과 상단 동기화 바는 제거했다(003). 물류센터 재고는 실사 입력과
+출고 등록으로만 바뀐다.
+
+`warehouse_monthly` 에는 읽기 정책만 있어 월별 출고량을 쓸 수 없었다. 003 에서
+본사용 insert/update 정책을 더했다. RLS 는 막을 때 예외를 던지지 않고 조용히
+지나가므로, 새로 쓰는 표가 생기면 정책부터 확인한다.
 `addRecommended()` 의 재고 편입은 아직 메모리에만 반영된다. 제품 추천 단계에서 잇는다.
 
 발주분의 재고 반영은 DB 함수 `place_order` 가 맡는다. 재고 목록에 없던 품목도

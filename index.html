@@ -264,13 +264,7 @@
       <!-- 실시간 재고 관리 -->
       <section id="hq-stock" class="view">
         <h2 class="section">실시간 재고 관리</h2>
-        <p class="section-desc">중앙물류센터 보유 재고와 거래처 현장 재고를 함께 봅니다. 출고가 발생하면 즉시 반영됩니다.</p>
-
-        <div class="sync-bar">
-          <span id="hqSyncState"></span>
-          <span class="spacer"></span>
-          <button class="mini-btn" id="hqSyncToggle" onclick="hqToggleLive()">일시정지</button>
-        </div>
+        <p class="section-desc">중앙물류센터 보유 재고와 거래처 현장 재고를 함께 봅니다. 출고를 등록하면 재고수량과 당월 출고량에 바로 반영됩니다.</p>
 
         <div class="stat-grid" id="hqStockStats"></div>
 
@@ -279,7 +273,7 @@
           <b>재고수량</b>은 실사한 수량을 직접 입력하는 칸입니다.
           <b class="memo-mark">발주 필요</b>·<b class="memo-mark">입고 예정</b>에는 추천값이 들어가 있고,
           그대로 지우고 메모처럼 고쳐 쓸 수 있습니다.
-          적정재고는 최근 3개월 사용량 × 0.833으로 자동 계산됩니다.
+          적정재고는 직전 완료 3개월 사용량 × 0.833으로 자동 계산됩니다. 당월은 아직 진행 중이라 빠집니다.
         </div>
         <div class="chip-bar" id="hqWhFilterBar"></div>
         <div class="panel">
@@ -296,9 +290,13 @@
           </table></div>
         </div>
 
-        <h3 class="sub-h">실시간 출고</h3>
+        <h3 class="sub-h">출고 등록</h3>
         <div class="panel">
-          <div id="hqWhFeed"></div>
+          <div class="panel-head"><h3>거래처 출고</h3>
+            <span class="spacer"></span>
+            <span class="sku">등록하면 재고수량에서 빠지고 당월 출고량에 쌓입니다</span></div>
+          <div id="hqShipForm"></div>
+          <div id="hqShipRows"></div>
         </div>
 
         <h3 class="sub-h">거래처 현장 재고 알림</h3>
