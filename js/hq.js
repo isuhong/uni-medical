@@ -10,6 +10,7 @@ let HQ_THREAD = null;    // 인박스에서 열려 있는 대화의 거래처 id
 let HQ_MSGS   = [];      // 소통 인박스 목록 (API.getInbox)
 let HQ_THREAD_LOG = [];  // 열린 대화의 메시지
 let HQ_SUB    = null;    // 실시간 구독 핸들
+let HQ_ORDERS = [];      // 발주 파이프라인 (API.getOrderPipeline)
 let HQ_FLEET = [];       // API.getFleet() 결과. data.js 의 FLEET 을 대체한다.
 
 async function enterHQ(){
@@ -33,7 +34,7 @@ async function hqSwitchTab(name){
     v.classList.toggle("active", v.id === "hq-"+name));
   if (name === "overview")  hqOverview();
   if (name === "accounts")  await hqAccounts();
-  if (name === "pipeline")  hqPipeline();
+  if (name === "pipeline")  await hqPipeline();
   if (name === "stock")     await hqStock();
   if (name === "products")  hqProducts();
   if (name === "inbox")     await hqInbox();
@@ -177,42 +178,73 @@ async function hqAccountDetail(id){
 }
 
 /* ---------- 발주 파이프라인 ---------- */
-function hqPipeline(){
-  // HQ_FLEET 에서 발주 상태를 합성 (실계정은 실제 orderHistory 최신 반영)
-  const rows = HQ_FLEET.map(f=>{
-    const real = ACCOUNTS[f.id];
-    const last = real?.orderHistory?.[0];
-    const lastDate = last ? last.date : "—";
-    const lastQty = last ? last.items.reduce((s,i)=>s+i[1],0) : Math.round(f.skus*8);
-    // 파이프라인 단계: 위험군은 발주 대기, 나머지는 최근 처리/배송
-    const stage = f.status==="risk" ? "발주 대기"
-                : f.status==="watch" ? "배송 중" : "처리 완료";
-    return { f, lastDate, lastQty, stage };
-  }).sort((a,b)=> stageRank(a.stage)-stageRank(b.stage));
+// 거래처가 실제로 넣은 발주(orders)를 건별로 본다.
+// 예전에는 거래처 상태에서 단계를 지어냈다.
 
-  const counts = {
-    "발주 대기": rows.filter(r=>r.stage==="발주 대기").length,
-    "배송 중":   rows.filter(r=>r.stage==="배송 중").length,
-    "처리 완료": rows.filter(r=>r.stage==="처리 완료").length,
-  };
-  document.getElementById("hqPipeStats").innerHTML = `
-    <div class="stat alert"><div class="num">${counts["발주 대기"]}</div><div class="lbl">발주 대기</div></div>
-    <div class="stat warn"><div class="num">${counts["배송 중"]}</div><div class="lbl">배송 중</div></div>
-    <div class="stat"><div class="num">${counts["처리 완료"]}</div><div class="lbl">처리 완료</div></div>
-    <div class="stat"><div class="num">${(FLEET_TOTALS.wasteReduction*100).toFixed(0)}%</div><div class="lbl">폐기 절감(YoY)</div></div>`;
-
-  document.getElementById("hqPipeRows").innerHTML = rows.map(r=>`
-    <tr>
-      <td data-label="거래처"><div class="pname">${r.f.name}</div>
-          <div class="sku">${r.f.type} · ${r.f.region}</div></td>
-      <td data-label="단계">${stagePill(r.stage)}</td>
-      <td class="num-cell" data-label="최근 발주일">${r.lastDate}</td>
-      <td class="num-cell" data-label="수량">${r.lastQty}</td>
-      <td data-label="처리">${r.stage==="발주 대기"
-        ? `<button class="mini-btn" onclick="toast('${r.f.name} 발주를 승인했습니다.')">승인</button>`
-        : '<span class="sku">—</span>'}</td>
-    </tr>`).join("");
+async function hqPipeline(){
+  try {
+    HQ_ORDERS = await API.getOrderPipeline();
+  } catch (e){
+    HQ_ORDERS = [];
+    document.getElementById("hqPipeRows").innerHTML =
+      `<tr><td colspan="6"><div class="empty">발주 내역을 불러오지 못했습니다.</div></td></tr>`;
+    return;
+  }
+  hqPipeRender();
 }
+
+function hqPipeRender(){
+  const rows = [...HQ_ORDERS].sort((a,b)=>
+    stageRank(a.stage) - stageRank(b.stage) || (a.at < b.at ? 1 : -1));
+
+  const at = st => HQ_ORDERS.filter(o => o.stage === st);
+  const waiting = at("발주 대기");
+  document.getElementById("hqPipeStats").innerHTML = `
+    <div class="stat alert"><div class="num">${waiting.length}</div><div class="lbl">발주 대기</div></div>
+    <div class="stat warn"><div class="num">${at("배송 중").length}</div><div class="lbl">배송 중</div></div>
+    <div class="stat"><div class="num">${at("처리 완료").length}</div><div class="lbl">처리 완료</div></div>
+    <div class="stat"><div class="num" style="font-size:20px">${won(waiting.reduce((s,o)=>s+o.total,0))}</div>
+      <div class="lbl">대기 금액</div></div>`;
+
+  document.getElementById("hqPipeRows").innerHTML = rows.length ? rows.map(o=>`
+    <tr>
+      <td data-label="거래처"><div class="pname">${o.account}</div>
+          <div class="sku">${[o.type, o.region].filter(Boolean).join(" · ")}</div></td>
+      <td data-label="단계">${stagePill(o.stage)}</td>
+      <td class="num-cell" data-label="발주일">${o.date}</td>
+      <td class="num-cell" data-label="수량">${whNum(o.qty)}
+          <div class="sku">${o.items.length}종</div></td>
+      <td class="num-cell" data-label="금액">${won(o.total)}</td>
+      <td data-label="처리">${hqStageBtn(o)}</td>
+    </tr>`).join("")
+    : `<tr><td colspan="6"><div class="empty">아직 접수된 발주가 없습니다.</div></td></tr>`;
+}
+
+// 발주 대기 → 배송 중 → 처리 완료
+function hqStageBtn(o){
+  if (o.stage === "발주 대기")
+    return `<button class="mini-btn" onclick="hqSetStage(${o.id}, '배송 중')">승인</button>`;
+  if (o.stage === "배송 중")
+    return `<button class="mini-btn" onclick="hqSetStage(${o.id}, '처리 완료')">입고 완료</button>`;
+  return '<span class="sku">—</span>';
+}
+
+async function hqSetStage(orderId, stage){
+  const o = HQ_ORDERS.find(x => Number(x.id) === Number(orderId));
+  if (!o) return;
+  const prev = o.stage;
+  o.stage = stage;
+  hqPipeRender();
+  try {
+    await API.setOrderStage(orderId, stage);
+    toast(`${o.account} 발주를 '${stage}' 로 옮겼습니다.`);
+  } catch (e){
+    o.stage = prev;
+    hqPipeRender();
+    toast("단계를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+}
+
 function stageRank(s){ return {"발주 대기":0,"배송 중":1,"처리 완료":2}[s]; }
 
 /* ---------- 실시간 재고 관리 ----------

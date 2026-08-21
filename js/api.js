@@ -119,6 +119,34 @@ const API = (() => {
     }));
   }
 
+  /* ---------- 본사: 발주 파이프라인 ---------- */
+
+  // 전 거래처의 발주를 최신순으로. 본사만 읽을 수 있다(orders_read 정책).
+  async function getOrderPipeline(limit = 100){
+    const rows = unwrap(await client()
+      .from("orders")
+      .select("id, account_id, ordered_on, stage, total, created_at,"
+            + " accounts(name, type, region), order_items(sku, qty)")
+      .order("created_at", { ascending:false })
+      .limit(limit));
+    return rows.map(o => {
+      const a = Array.isArray(o.accounts) ? o.accounts[0] : o.accounts;
+      const items = o.order_items ?? [];
+      return {
+        id:o.id, accountId:o.account_id,
+        account:a?.name ?? o.account_id, type:a?.type ?? "", region:a?.region ?? "",
+        date:o.ordered_on, stage:o.stage, total:o.total, at:o.created_at,
+        items: items.map(i => [i.sku, i.qty]),
+        qty:   items.reduce((s,i) => s + i.qty, 0),
+      };
+    });
+  }
+
+  // 발주 단계 변경 (발주 대기 → 배송 중 → 처리 완료). 본사만 쓸 수 있다.
+  async function setOrderStage(orderId, stage){
+    unwrap(await client().from("orders").update({ stage }).eq("id", orderId));
+  }
+
   /* ---------- 본사: 거래처 목록 ---------- */
 
   async function getFleet(){
@@ -355,7 +383,7 @@ const API = (() => {
     getProducts,
     getInventory, setStock, addInventoryItem,
     placeOrder, getOrders,
-    getFleet, getSkuMetrics,
+    getFleet, getSkuMetrics, getOrderPipeline, setOrderStage,
     getWarehouse, getWarehouseMonths, setWarehouseStock, setWarehouseProper, setWarehouseNote,
     shipStock, getShipments, getShipmentsRange, getShippedToday,
     getMessages, getInbox, sendMessage, markRead,
