@@ -20,7 +20,7 @@ async function attemptLogin(id, pw){
     const acc = await API.login(rawId, rawPw);
 
     // 본사(HQ) 계정 분기 — 완전히 다른 콘솔로 진입
-    if (acc.isHQ){ SESSION = null; enterHQ(); return; }
+    if (acc.isHQ){ SESSION = null; await enterHQ(); return; }   // 목록을 받아온 뒤 진입
 
     // 대시보드·재고·발주 화면이 SESSION.acc.inventory 를 읽는다
     acc.inventory = await API.getInventory(acc.id);

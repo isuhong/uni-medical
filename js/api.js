@@ -127,7 +127,9 @@ const API = (() => {
       .select("id, name, type, tier, region, is_live, account_metrics(*)")
       .eq("is_hq", false));
     return rows.map(a => {
-      const m = a.account_metrics || {};
+      // PostgREST 는 1:1 이면 객체, 1:N 이면 배열로 준다. 둘 다 받아둔다.
+      const am = a.account_metrics;
+      const m = (Array.isArray(am) ? am[0] : am) || {};
       return {
         id:a.id, name:a.name, type:a.type, tier:a.tier, region:a.region,
         detailed:a.is_live,

@@ -7,11 +7,18 @@
 let HQ_FILTER = "all";   // 거래처 상태 필터
 let HQ_DRILL = null;     // 드릴다운으로 선택된 거래처 id
 let HQ_THREAD = null;    // 인박스에서 열려 있는 대화 id
+let HQ_FLEET = [];       // API.getFleet() 결과. data.js 의 FLEET 을 대체한다.
 
-function enterHQ(){
+async function enterHQ(){
   document.getElementById("loginRoot").style.display = "none";
   document.getElementById("appRoot").style.display = "none";
   document.getElementById("hqRoot").style.display = "";
+  try {
+    HQ_FLEET = await API.getFleet();
+  } catch (e){
+    HQ_FLEET = [];
+    toast("거래처 목록을 불러오지 못했습니다.");
+  }
   hqSwitchTab("overview");
 }
 
@@ -50,7 +57,7 @@ function hqOverview(){
     </div>`).join("");
 
   // 주의 필요 거래처 Top (risk 우선)
-  const flagged = [...FLEET].filter(f=>f.status!=="healthy")
+  const flagged = [...HQ_FLEET].filter(f=>f.status!=="healthy")
     .sort((a,b)=> statusRank(b.status)-statusRank(a.status) || b.risk-a.risk)
     .slice(0,6);
   document.getElementById("hqFlaggedRows").innerHTML = flagged.map(f=>`
@@ -73,16 +80,16 @@ function hqAccounts(){
   document.getElementById("hqAccountList").style.display = "";
 
   const counts = {
-    all: FLEET.length,
-    risk: FLEET.filter(f=>f.status==="risk").length,
-    watch: FLEET.filter(f=>f.status==="watch").length,
-    healthy: FLEET.filter(f=>f.status==="healthy").length,
+    all: HQ_FLEET.length,
+    risk: HQ_FLEET.filter(f=>f.status==="risk").length,
+    watch: HQ_FLEET.filter(f=>f.status==="watch").length,
+    healthy: HQ_FLEET.filter(f=>f.status==="healthy").length,
   };
   document.getElementById("hqFilterBar").innerHTML = ["all","risk","watch","healthy"]
     .map(k=>`<button class="chip ${HQ_FILTER===k?'on':''}" onclick="hqSetFilter('${k}')">
         ${filterLabel(k)} <b>${counts[k]}</b></button>`).join("");
 
-  const rows = FLEET
+  const rows = HQ_FLEET
     .filter(f => HQ_FILTER==="all" || f.status===HQ_FILTER)
     .sort((a,b)=> statusRank(b.status)-statusRank(a.status) || b.monthlyRevenue-a.monthlyRevenue)
     .map(f=>`
@@ -103,17 +110,24 @@ function filterLabel(k){ return {all:"전체",risk:"위험",watch:"주의",healt
 function hqDrill(id){ HQ_DRILL=id; hqSwitchTab("accounts"); }
 function hqBackToList(){ HQ_DRILL=null; hqAccounts(); }
 
-// 거래처 상세 — 실계정(ACCOUNTS)이면 실제 재고까지 드릴다운
-function hqAccountDetail(id){
-  const f = FLEET.find(x=>x.id===id);
+// 거래처 상세 — 실계정(accounts.is_live)이면 실제 재고까지 드릴다운
+async function hqAccountDetail(id){
+  const f = HQ_FLEET.find(x=>x.id===id);
   document.getElementById("hqAccountList").style.display = "none";
   const box = document.getElementById("hqAccountDetail");
   box.style.display = "";
+  if (!f){ box.innerHTML = `<div class="empty">거래처를 찾을 수 없습니다.</div>`; return; }
 
   let inv = "";
-  const real = ACCOUNTS[id];
-  if (real){
-    const analyzed = analyzeAccount({inventory: real.inventory, profile: real.profile});
+  // 실계정(accounts.is_live)만 재고를 열람한다. 본사는 RLS 상 전 거래처를 읽을 수 있다.
+  let analyzed = null;
+  if (f.detailed){
+    try { analyzed = analyzeAccount({ inventory: await API.getInventory(id) }); }
+    catch (e){ analyzed = null; }
+  }
+  if (f.detailed && !analyzed){
+    inv = `<div class="panel"><div class="empty">재고를 불러오지 못했습니다.</div></div>`;
+  } else if (analyzed){
     inv = `
       <div class="panel">
         <div class="panel-head"><h3>실시간 재고 (본사 열람)</h3>
@@ -135,7 +149,7 @@ function hqAccountDetail(id){
       </div>`;
   } else {
     inv = `<div class="panel"><div class="empty">이 거래처는 데모 요약 계정입니다.<br>
-      실시간 재고 드릴다운은 실계정(한양대학교병원·세명정형외과병원·미래정형외과의원)에서 확인할 수 있습니다.</div></div>`;
+      실시간 재고 드릴다운은 실계정에서 확인할 수 있습니다.</div></div>`;
   }
 
   box.innerHTML = `
@@ -161,8 +175,8 @@ function hqAccountDetail(id){
 
 /* ---------- 발주 파이프라인 ---------- */
 function hqPipeline(){
-  // FLEET에서 발주 상태를 합성 (실계정은 실제 orderHistory 최신 반영)
-  const rows = FLEET.map(f=>{
+  // HQ_FLEET 에서 발주 상태를 합성 (실계정은 실제 orderHistory 최신 반영)
+  const rows = HQ_FLEET.map(f=>{
     const real = ACCOUNTS[f.id];
     const last = real?.orderHistory?.[0];
     const lastDate = last ? last.date : "—";
@@ -297,7 +311,7 @@ function hqWhSetFilter(k){ WH_FILTER = k; hqWhFilterBar(); hqWhRows(); }
 
 function hqWhStats(){
   const need = WAREHOUSE.filter(w => ["now","out"].includes(whStatus(w))).length;
-  const fieldRisk = FLEET.reduce((s,f)=>s+f.risk, 0);
+  const fieldRisk = HQ_FLEET.reduce((s,f)=>s+f.risk, 0);
   document.getElementById("hqStockStats").innerHTML = `
     <div class="stat"><div class="num">${WAREHOUSE.length}</div><div class="lbl">물류센터 관리 SKU</div></div>
     <div class="stat alert"><div class="num">${need}</div><div class="lbl">발주 필요 SKU</div></div>
@@ -403,7 +417,7 @@ function whMakeEvent(seed){
   const total = WAREHOUSE.reduce((s,w)=>s+whDaily(w),0);
   let r = Math.random() * total, w = WAREHOUSE[0];
   for (const cand of WAREHOUSE){ r -= whDaily(cand); if (r <= 0){ w = cand; break; } }
-  const f = FLEET[Math.floor(Math.random()*FLEET.length)];
+  const f = HQ_FLEET[Math.floor(Math.random()*HQ_FLEET.length)] || { name:"—" };
   const qty = Math.max(1, Math.round(whDaily(w) * (0.01 + Math.random()*0.04)));
   const t = new Date(Date.now() - (seed ? Math.random()*600000 : 0));
   return { sku:w.sku, name:findProduct(w.sku).name, account:f.name, qty,
@@ -574,7 +588,7 @@ function hqCloseThread(){ HQ_THREAD = null; hqInbox(); }
 // 거래처 상세의 '메시지 보내기' → 해당 거래처 채팅창을 연다.
 // 기존 문의가 없으면 본사에서 시작하는 새 대화를 만든다.
 function hqMessageAccount(fleetId){
-  const f = FLEET.find(x=>x.id===fleetId);
+  const f = HQ_FLEET.find(x=>x.id===fleetId);
   if (!f) return;
   let m = HQ_INBOX.find(x => x.accountId===fleetId || x.account===f.name);
   if (!m){
@@ -594,7 +608,7 @@ function hqRenderThread(id){
   const box = document.getElementById("hqInboxThread");
   box.style.display = "";
 
-  const f = FLEET.find(x => x.id===m.accountId || x.name===m.account);
+  const f = HQ_FLEET.find(x => x.id===m.accountId || x.name===m.account);
   const meta = f ? `${f.type} · ${f.region}` : "거래처";
 
   box.innerHTML = `
