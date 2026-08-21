@@ -193,11 +193,23 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 ## 10. 현재 상태
 
 - 프런트엔드: 완성. GitHub Pages 배포 중
-- 백엔드: **초안 작성 완료** — `backend/schema.sql`, `backend/seed.sql`, `js/api.js`, `js/config.js`
-- 아직 연결 전이다. 화면은 여전히 `js/data.js` 를 읽는다
+- 백엔드: Supabase 구축 완료. `schema.sql` · `seed.sql` 실행, Auth 계정 4개 연결까지 끝났다
+- 화면을 하나씩 `API.*` 로 교체하는 중이다
 
-**다음 할 일** — 자세한 절차는 `backend/README.md`
-1. Supabase 프로젝트 생성 후 schema.sql → seed.sql 실행 (사람이 직접)
-2. Auth 사용자 4개 생성 후 `accounts.auth_user_id` 연결 (사람이 직접)
-3. `js/config.js` 채우고 `index.html` 에 스크립트 태그 추가
-4. 로그인부터 화면을 하나씩 `API.*` 로 교체. 하나 끝날 때마다 브라우저 확인 후 커밋
+| 화면 | 상태 | 쓰는 API |
+|---|---|---|
+| 로그인 | 완료 | `login` · `getInventory` |
+| 거래처 재고 | 완료 | `setStock` |
+| 발주 | 남음 | `placeOrder` · `getOrders` |
+| 본사 거래처 목록 | 남음 | `getFleet` |
+| 실시간 재고 관리 | 남음 | `getWarehouse` · `setWarehouseStock` · `setWarehouseNote` |
+| 소통 | 남음 | `getMessages` · `getInbox` · `sendMessage` |
+
+아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG`), 발주 이력, 본사 화면 전체, 소통창.
+`addRecommended()` 와 `placeOrder()` 도 재고를 건드리지만 아직 메모리에만 반영된다.
+각각 제품 추천 · 발주 단계에서 함께 잇는다.
+
+전부 교체되면 `js/data.js` 를 지운다.
+
+**작업 환경 메모** — 이 저장소는 클라우드 세션에서 `git push` 가 403으로 막혀 있다.
+당분간 변경된 파일을 사람이 GitHub 웹에서 직접 업로드하는 방식으로 진행한다.
