@@ -148,6 +148,8 @@ create table warehouse_stock (
   order_note_by_user boolean not null default false,
   in_note           text        null,
   in_note_by_user   boolean not null default false,
+  par_override      integer         null           -- 직접 지정한 적정재고. null 이면 자동 계산
+                    check (par_override >= 0),
   counted_at        timestamptz     null,         -- 마지막 실사 입력 시각
   updated_at        timestamptz not null default now()
 );
@@ -186,9 +188,18 @@ with last3 as (
     select sku, qty,
            row_number() over (partition by sku order by month desc) as rn
     from warehouse_monthly
+    where month < date_trunc('month', current_date)::date   -- 당월 제외
   ) t
   where rn <= 3
   group by sku
+),
+calc as (
+  select w.sku,
+         coalesce(l.use3, 0) as use3,
+         coalesce(w.par_override,
+                  round(coalesce(l.use3, 0) * 0.833)::int) as proper
+    from warehouse_stock w
+    left join last3 l on l.sku = w.sku
 )
 select
   w.sku,
@@ -196,8 +207,9 @@ select
   p.category,
   p.unit,
   w.stock,
-  coalesce(l.use3, 0)                            as use3,        -- 사용량재고
-  round(coalesce(l.use3, 0) * 0.833)::int        as proper,      -- 적정재고
+  c.use3          as use3,          -- 사용량재고 (직전 완료 3개월 합)
+  c.proper        as proper,        -- 적정재고 (지정값 우선, 없으면 자동 계산)
+  w.par_override,
   w.inbound,
   w.inbound_eta,
   w.order_note,
@@ -205,16 +217,16 @@ select
   w.in_note,
   w.in_note_by_user,
   case
-    when w.stock <= 0                                     then 'out'
-    when w.stock <  round(coalesce(l.use3,0) * 0.833)     then 'now'
-    when w.stock <  round(coalesce(l.use3,0) * 0.833)*1.2 then 'soon'
+    when w.stock <= 0              then 'out'
+    when w.stock <  c.proper       then 'now'
+    when w.stock <  c.proper * 1.2 then 'soon'
     else 'ok'
-  end                                            as status,
+  end             as status,
   w.counted_at,
   w.updated_at
 from warehouse_stock w
 join products p on p.sku = w.sku
-left join last3 l on l.sku = w.sku;
+join calc     c on c.sku = w.sku;
 
 
 -- 제품·수요 분석 화면용 SKU 지표 (프런트의 SKU_METRICS)
