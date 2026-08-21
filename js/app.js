@@ -4,8 +4,9 @@
    상태는 세션 동안 메모리에 유지 (데모). 새로고침 시 초기화.
    ========================================================================= */
 
-let SESSION = null;   // { id, acc } — 현재 로그인 거래처
-let CHAT = {};        // 거래처별 메시지 로그(데모)
+let SESSION  = null;   // { id, acc } — 현재 로그인 거래처
+let CHAT_LOG = [];     // 본사와 주고받은 메시지 (API.getMessages)
+let CHAT_SUB = null;   // 실시간 구독 핸들
 
 /* ---------- 로그인 ---------- */
 // Supabase Auth 로 인증하고, 거래처 재고까지 받아온 뒤 화면에 들어간다.
@@ -28,7 +29,6 @@ async function attemptLogin(id, pw){
 
     SESSION = { id:acc.id, acc };
     CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
-    if (!CHAT[acc.id]) CHAT[acc.id] = seedChat(acc);
     showApp();
   } catch (e){
     err.textContent = e.message || "로그인에 실패했습니다.";
@@ -44,6 +44,7 @@ function fillDemo(id){
 }
 
 function logout(){
+  chatUnsub();
   API.logout().catch(()=>{});   // Supabase 세션도 함께 종료
   SESSION = null;
   document.getElementById("appRoot").style.display = "none";
@@ -65,6 +66,7 @@ function showApp(){
 }
 
 function switchTab(name){
+  if (name !== "contact") chatUnsub();
   document.querySelectorAll("#appRoot .tab").forEach(t =>
     t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll("#appRoot .view").forEach(v =>
@@ -315,46 +317,69 @@ function addRecommended(sku){
 }
 
 /* ---------- 소통창 ---------- */
-function seedChat(acc){
-  return [
-    { who:"them", name:"유엔아이메디컬 CS", t:"2일 전",
-      text:`${acc.profile.name} 담당자님, 안녕하세요. 제품 사용 관련 문의나 건의사항은 이 창으로 남겨주세요.` },
-  ];
+// 본사 인박스와 같은 messages 테이블을 본다. 양쪽이 하나의 대화다.
+
+function chatUnsub(){
+  if (CHAT_SUB){ CHAT_SUB.unsubscribe(); CHAT_SUB = null; }
 }
-function renderContact(){
-  const log = CHAT[SESSION.id];
-  document.getElementById("msgList").innerHTML = log.map(m=>`
-    <div class="msg ${m.who}">
-      <div class="who">${m.who==="me" ? "우리 병원" : m.name}</div>
-      <div>${escapeHtml(m.text)}</div>
-      <div class="time">${m.t}</div>
+
+async function renderContact(){
+  const el = document.getElementById("msgList");
+  try {
+    CHAT_LOG = await API.getMessages(SESSION.id);
+  } catch (e){
+    el.innerHTML = `<div class="empty">대화를 불러오지 못했습니다.</div>`;
+    return;
+  }
+  drawChat();
+
+  // 본사가 보낸 메시지를 읽음 처리
+  API.markRead(SESSION.id, "hq").catch(()=>{});
+
+  // 본사가 새로 보내면 바로 붙인다
+  chatUnsub();
+  CHAT_SUB = API.watchMessages(SESSION.id, m => {
+    if (CHAT_LOG.some(x => x.id === m.id)) return;   // 내가 방금 보낸 것
+    CHAT_LOG.push(m);
+    drawChat();
+    if (m.who === "hq") API.markRead(SESSION.id, "hq").catch(()=>{});
+  });
+}
+
+function drawChat(){
+  const el = document.getElementById("msgList");
+  if (!CHAT_LOG.length){
+    el.innerHTML = `<div class="empty">아직 주고받은 메시지가 없습니다.<br>
+      제품 문의나 건의사항을 남겨주세요.</div>`;
+    return;
+  }
+  el.innerHTML = CHAT_LOG.map(m=>`
+    <div class="msg ${m.who==="account" ? "me" : "them"}">
+      <div class="who">${m.who==="account" ? "우리 병원" : (m.name || "유엔아이메디컬 CS")}</div>
+      <div>${m.cat ? `[${escapeHtml(m.cat)}] ` : ""}${escapeHtml(m.text)}</div>
+      <div class="time">${fmtWhen(m.at)}</div>
     </div>`).join("");
-  const el = document.getElementById("msgList"); el.scrollTop = el.scrollHeight;
+  el.scrollTop = el.scrollHeight;
 }
-function sendMessage(){
-  const ta = document.getElementById("chatText");
+
+async function sendMessage(){
+  const ta  = document.getElementById("chatText");
   const cat = document.getElementById("chatCat").value;
+  const btn = document.getElementById("chatSend");
   const text = ta.value.trim();
   if (!text) return;
-  const log = CHAT[SESSION.id];
-  log.push({ who:"me", name:"우리 병원", t:"방금", text:`[${cat}] ${text}` });
-  ta.value = "";
-  renderContact();
-  // 자동 응답(데모)
-  setTimeout(()=>{
-    log.push({ who:"them", name:"유엔아이메디컬 CS", t:"방금",
-      text:autoReply(cat) });
-    renderContact();
-  }, 700);
-}
-function autoReply(cat){
-  const map = {
-    "제품 문의":"문의 감사합니다. 해당 제품 규격/호환 정보를 확인해 영업담당이 곧 회신드리겠습니다.",
-    "품질 건의":"소중한 피드백 감사합니다. 품질팀에 전달했으며 로트 확인 후 조치 결과를 공유하겠습니다.",
-    "신제품 요청":"요청 주신 품목의 도입 가능성을 검토해 담당 MD가 안내드리겠습니다.",
-    "배송/발주":"발주·배송 관련 사항은 물류팀에서 당일 내 확인해 회신드리겠습니다.",
-  };
-  return map[cat] || "확인 후 회신드리겠습니다.";
+
+  btn.disabled = true;
+  try {
+    const m = await API.sendMessage(SESSION.id, "account", text, cat);
+    CHAT_LOG.push(m);
+    ta.value = "";
+    drawChat();
+  } catch (e){
+    toast("메시지를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* ---------- 공통 UI ---------- */
@@ -380,6 +405,17 @@ function toast(msg){
   clearTimeout(window.__tt);
   window.__tt = setTimeout(()=>t.classList.remove("show"), 2600);
 }
+// 오늘이면 시:분, 어제면 '어제 시:분', 그 밖이면 월/일
+function fmtWhen(iso){
+  if (!iso) return "";
+  const d = new Date(iso), now = new Date();
+  const hhmm = d.toTimeString().slice(0,5);
+  if (d.toDateString() === now.toDateString()) return hhmm;
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return `어제 ${hhmm}`;
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
 function escapeHtml(s){
   return s.replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
