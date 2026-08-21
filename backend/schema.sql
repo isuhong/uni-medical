@@ -14,6 +14,7 @@
 
 -- ---- 정리 (재실행 편의용. 운영 DB에서는 이 블록을 지울 것) -----------------
 drop view   if exists v_warehouse cascade;
+drop table  if exists shipments         cascade;
 drop table  if exists messages          cascade;
 drop table  if exists order_items       cascade;
 drop table  if exists orders            cascade;
@@ -164,6 +165,20 @@ comment on table warehouse_monthly is
 
 
 -- 엑셀 시트와 같은 계산을 뷰로 제공. 프런트는 이 뷰를 그대로 표에 뿌릴 수 있다.
+-- 출고 이력 (본사가 등록한 거래처별 출고)
+create table if not exists shipments (
+  id         bigint generated always as identity primary key,
+  account_id text    not null references accounts(id) on delete cascade,
+  sku        text    not null references products(sku),
+  qty        integer not null check (qty > 0),
+  shipped_on date    not null default current_date,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists shipments_recent_idx on shipments (created_at desc);
+create index if not exists shipments_day_idx    on shipments (shipped_on);
+
+
 create view v_warehouse as
 with last3 as (
   select sku, sum(qty) as use3
@@ -265,6 +280,7 @@ alter table warehouse_stock   enable row level security;
 alter table warehouse_monthly enable row level security;
 alter table sku_metrics       enable row level security;
 alter table messages          enable row level security;
+alter table shipments         enable row level security;
 
 -- 카탈로그: 로그인한 사용자면 읽기
 create policy products_read on products
@@ -329,6 +345,18 @@ create policy warehouse_write on warehouse_stock
 
 create policy warehouse_monthly_read on warehouse_monthly
   for select to authenticated using (true);
+
+create policy warehouse_monthly_insert on warehouse_monthly
+  for insert to authenticated with check (is_hq());
+
+create policy warehouse_monthly_update on warehouse_monthly
+  for update to authenticated using (is_hq()) with check (is_hq());
+
+create policy shipments_read on shipments
+  for select to authenticated using (is_hq());
+
+create policy shipments_insert on shipments
+  for insert to authenticated with check (is_hq());
 
 create policy sku_metrics_read on sku_metrics
   for select to authenticated using (is_hq());
@@ -411,3 +439,49 @@ begin
   return v_order_id;
 end;
 $$;
+
+create or replace function ship_stock(p_account_id text, p_sku text, p_qty integer)
+returns bigint
+language plpgsql security invoker as $$
+declare
+  v_id    bigint;
+  v_stock integer;
+  v_month date := date_trunc('month', current_date)::date;
+begin
+  -- 정책에 기대지 않고 먼저 막는다. RLS 는 조용히 지나가므로 절반만 반영될 수 있다.
+  if not is_hq() then
+    raise exception '본사 계정만 출고를 등록할 수 있습니다.';
+  end if;
+
+  if p_qty is null or p_qty <= 0 then
+    raise exception '출고 수량은 1 이상이어야 합니다.';
+  end if;
+
+  select stock into v_stock from warehouse_stock where sku = p_sku;
+  if v_stock is null then
+    raise exception '물류센터에서 관리하지 않는 품목입니다: %', p_sku;
+  end if;
+  if v_stock < p_qty then
+    raise exception '재고가 부족합니다. 현재고 %개, 요청 %개', v_stock, p_qty;
+  end if;
+
+  -- 1) 재고 차감
+  update warehouse_stock
+     set stock = stock - p_qty, updated_at = now()
+   where sku = p_sku;
+
+  -- 2) 당월 출고량 누적 (그 달 행이 없으면 새로 만든다)
+  insert into warehouse_monthly (sku, month, qty)
+  values (p_sku, v_month, p_qty)
+  on conflict (sku, month) do update
+     set qty = warehouse_monthly.qty + excluded.qty;
+
+  -- 3) 이력
+  insert into shipments (account_id, sku, qty)
+  values (p_account_id, p_sku, p_qty)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
