@@ -75,6 +75,9 @@ uni-medical/
 - **출고 등록**(같은 화면)에서 거래처·품목·수량을 고르면 DB 함수 `ship_stock` 이
   재고 차감 · 당월 출고량 누적 · 이력 기록을 한 번에 처리한다.
   거래처 발주(`place_order`)와는 아직 연결하지 않았다. 물류센터 재고는 이 등록으로만 줄어든다.
+  출고 이력(`shipments`)은 지워지지 않는다. 화면 목록은 최근 10건만 보여주고,
+  전체는 기간을 정해 CSV 로 내보낸다. 기간은 `created_at` 을 현지 시각 경계로 자른다
+  (`shipped_on` 은 DB 기준 날짜라 이른 아침 건이 하루 밀린다).
 - **소통 인박스**에서 거래처를 누르면 채팅창이 열리고, 거래처 상세의 '메시지 보내기'도 같은 채팅창으로 연결된다.
   거래처 소통창과 본사 인박스가 `messages` 한 테이블을 본다. 대화는 거래처당 하나다.
   양쪽이 실제로 주고받으므로 데모 자동응답은 없앴다. 본사가 답해야 거래처에 뜬다.
@@ -211,7 +214,7 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 | 발주 | 완료 | `placeOrder` · `getOrders` |
 | 본사 거래처 목록 | 완료 | `getFleet` · `getInventory` |
 | 실시간 재고 관리 | 완료 | `getWarehouse` · `getWarehouseMonths` · `setWarehouseStock` · `setWarehouseNote` |
-| 출고 등록 | 완료 | `shipStock` · `getShipments` · `getShippedToday` |
+| 출고 등록 | 완료 | `shipStock` · `getShipments` · `getShipmentsRange` · `getShippedToday` |
 | 소통 | 완료 | `getMessages` · `getInbox` · `sendMessage` · `markRead` · `watchMessages` |
 
 아직 `js/data.js` 에 남은 것: 제품 카탈로그(`CATALOG` · `findProduct`),
