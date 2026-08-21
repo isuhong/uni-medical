@@ -76,6 +76,10 @@ uni-medical/
   재고 차감 · 당월 출고량 누적 · 이력 기록을 한 번에 처리한다.
   거래처 발주(`place_order`)와는 아직 연결하지 않았다. 물류센터 재고는 이 등록으로만 줄어든다.
 - **소통 인박스**에서 거래처를 누르면 채팅창이 열리고, 거래처 상세의 '메시지 보내기'도 같은 채팅창으로 연결된다.
+  거래처 소통창과 본사 인박스가 `messages` 한 테이블을 본다. 대화는 거래처당 하나다.
+  양쪽이 실제로 주고받으므로 데모 자동응답은 없앴다. 본사가 답해야 거래처에 뜬다.
+  `watchMessages` 로 실시간 구독한다. Supabase 대시보드에서 `messages` 테이블의
+  Realtime 이 꺼져 있으면 조용히 동작하지 않는다 — 새로고침하면 보이지만 즉시 뜨지는 않는다.
 
 ---
 
@@ -208,10 +212,11 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 | 본사 거래처 목록 | 완료 | `getFleet` · `getInventory` |
 | 실시간 재고 관리 | 완료 | `getWarehouse` · `getWarehouseMonths` · `setWarehouseStock` · `setWarehouseNote` |
 | 출고 등록 | 완료 | `shipStock` · `getShipments` · `getShippedToday` |
-| 소통 | 남음 | `getMessages` · `getInbox` · `sendMessage` |
+| 소통 | 완료 | `getMessages` · `getInbox` · `sendMessage` · `markRead` · `watchMessages` |
 
-아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG` · `findProduct`), 소통창,
-본사 화면의 집계값(`FLEET_TOTALS` · `AI_INSIGHTS`), 발주 파이프라인의 `ACCOUNTS`.
+아직 `js/data.js` 를 읽는 곳: 제품 카탈로그(`CATALOG` · `findProduct`),
+본사 화면의 집계값(`FLEET_TOTALS` · `AI_INSIGHTS`), 발주 파이프라인의 `ACCOUNTS`,
+로그인 화면의 데모 계정 자동입력(`fillDemo`).
 본사 거래처 목록은 `HQ_FLEET`(= `API.getFleet()`)으로, 물류센터는 `WH_ITEMS` ·
 `WH_MONTH_LABELS` 로 바뀌었다. data.js 가 아직 로드되므로 전역 이름이 겹치지 않게
 새 이름을 썼다.
