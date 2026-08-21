@@ -8,27 +8,33 @@ let SESSION = null;   // { id, acc } — 현재 로그인 거래처
 let CHAT = {};        // 거래처별 메시지 로그(데모)
 
 /* ---------- 로그인 ---------- */
-function attemptLogin(id, pw){
+// Supabase Auth 로 인증하고, 거래처 재고까지 받아온 뒤 화면에 들어간다.
+async function attemptLogin(id, pw){
   const rawId = id?.trim(), rawPw = pw?.trim();
+  const err = document.getElementById("loginError");
+  const btn = document.getElementById("loginBtn");
 
-  // 본사(HQ) 계정 분기 — 완전히 다른 콘솔로 진입
-  if (rawId === "uni-hq" && rawPw === HQ_ACCOUNT.password){
-    document.getElementById("loginError").textContent = "";
-    enterHQ();
-    return;
-  }
+  err.textContent = "";
+  btn.disabled = true;
+  try {
+    const acc = await API.login(rawId, rawPw);
 
-  const acc = ACCOUNTS[rawId];
-  if (!acc || acc.password !== rawPw){
-    document.getElementById("loginError").textContent =
-      "ID 또는 비밀번호가 올바르지 않습니다.";
-    return;
+    // 본사(HQ) 계정 분기 — 완전히 다른 콘솔로 진입
+    if (acc.isHQ){ SESSION = null; enterHQ(); return; }
+
+    // 대시보드·재고·발주 화면이 SESSION.acc.inventory 를 읽는다
+    acc.inventory = await API.getInventory(acc.id);
+    acc.orderHistory = [];   // 3번(발주) 연결에서 API.getOrders() 로 교체
+
+    SESSION = { id:acc.id, acc };
+    CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
+    if (!CHAT[acc.id]) CHAT[acc.id] = seedChat(acc);
+    showApp();
+  } catch (e){
+    err.textContent = e.message || "로그인에 실패했습니다.";
+  } finally {
+    btn.disabled = false;
   }
-  // 깊은 복사로 세션 재고 확보 (원본 불변)
-  SESSION = { id:rawId, acc: JSON.parse(JSON.stringify(acc)) };
-  CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
-  if (!CHAT[rawId]) CHAT[rawId] = seedChat(SESSION.acc);
-  showApp();
 }
 
 function fillDemo(id){
@@ -38,6 +44,7 @@ function fillDemo(id){
 }
 
 function logout(){
+  API.logout().catch(()=>{});   // Supabase 세션도 함께 종료
   SESSION = null;
   document.getElementById("appRoot").style.display = "none";
   const hq = document.getElementById("hqRoot");
