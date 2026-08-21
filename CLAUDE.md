@@ -237,7 +237,9 @@ API.watchMessages(accountId, onInsert) / watchWarehouse(onChange)   ← 실시�
 `warehouse_monthly` 에는 읽기 정책만 있어 월별 출고량을 쓸 수 없었다. 003 에서
 본사용 insert/update 정책을 더했다. RLS 는 막을 때 예외를 던지지 않고 조용히
 지나가므로, 새로 쓰는 표가 생기면 정책부터 확인한다.
-`addRecommended()` 의 재고 편입은 아직 메모리에만 반영된다. 제품 추천 단계에서 잇는다.
+`addRecommended()` 는 `API.addInventoryItem()` 으로 저장하고, 발주 카트에도 함께 담는다.
+카트는 발주 탭 첫 진입에서 한 번만 만들어지므로(`CART === null` 일 때만), 담기에서
+카트를 직접 갱신하지 않으면 탭 옆 숫자만 늘고 장바구니에는 나타나지 않는다.
 
 발주분의 재고 반영은 DB 함수 `place_order` 가 맡는다. 재고 목록에 없던 품목도
 upsert 로 새로 편입한다 (`backend/migrations/001_place_order_upsert.sql`).
