@@ -24,7 +24,7 @@ async function attemptLogin(id, pw){
 
     // 대시보드·재고·발주 화면이 SESSION.acc.inventory 를 읽는다
     acc.inventory = await API.getInventory(acc.id);
-    acc.orderHistory = [];   // 3번(발주) 연결에서 API.getOrders() 로 교체
+    acc.orderHistory = await API.getOrders(acc.id);
 
     SESSION = { id:acc.id, acc };
     CART = null;   // 계정 진입 시 발주 카트 초기화(다음 발주 탭 진입에서 권장안으로 채움)
@@ -225,7 +225,7 @@ function renderCart(){
       <span class="spacer" style="flex:1"></span>
       <button class="btn ghost" style="width:auto;padding:10px 16px"
               onclick="resetCart()">권장안으로 초기화</button>
-      <button class="btn" style="width:auto;padding:10px 20px"
+      <button class="btn" id="placeOrderBtn" style="width:auto;padding:10px 20px"
               onclick="placeOrder()">발주 확정</button>
     </div>`;
 }
@@ -260,25 +260,28 @@ function resetCart(){
   toast("권장 발주안으로 초기화했습니다.");
 }
 
-function placeOrder(){
+// 주문 저장과 재고 반영은 DB 함수(place_order)가 한 번에 처리한다.
+// 끝난 뒤 재고·이력을 서버에서 다시 읽어 화면을 맞춘다.
+async function placeOrder(){
   if (!CART || CART.length === 0){ toast("발주할 품목이 없습니다."); return; }
-  let total = 0;
-  CART.forEach(c => {
-    const p = findProduct(c.sku); total += c.qty * p.price;
-    const it = findInv(c.sku);
-    if (it) it.stock += c.qty;
-    else SESSION.acc.inventory.push({   // 카트에만 있던 신규 품목도 재고로 편입
-      sku:c.sku, stock:c.qty, dailyUse:0.5,
-      reorderPoint:Math.max(4,Math.round(p.pack/3)), parLevel:p.pack*2
-    });
-  });
-  SESSION.acc.orderHistory.unshift({
-    date: new Date().toISOString().slice(0,10),
-    items: CART.map(c=>[c.sku,c.qty])
-  });
-  toast(`발주가 접수되었습니다 · ${won(total)} (입고까지 약 ${LEAD_TIME_DAYS}일)`);
-  CART = buildDefaultCart();   // 발주 후 권장안으로 재설정
-  renderOrders(); refreshBadge();
+  const btn = document.getElementById("placeOrderBtn");
+  if (btn) btn.disabled = true;
+
+  try {
+    await API.placeOrder(SESSION.id, CART.map(c => ({ sku:c.sku, qty:c.qty })));
+
+    SESSION.acc.inventory    = await API.getInventory(SESSION.id);
+    SESSION.acc.orderHistory = await API.getOrders(SESSION.id);
+
+    const last = SESSION.acc.orderHistory[0];
+    toast(`발주가 접수되었습니다 · ${won(last ? last.total : 0)} (입고까지 약 ${LEAD_TIME_DAYS}일)`);
+
+    CART = buildDefaultCart();   // 반영된 재고 기준으로 권장안 재설정
+    renderOrders(); refreshBadge();   // 버튼은 여기서 다시 그려진다
+  } catch (e){
+    toast("발주 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* ---------- 제품 추천 ---------- */
