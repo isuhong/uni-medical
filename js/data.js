@@ -40,7 +40,6 @@ function findProduct(sku){ return CATALOG.find(p => p.sku === sku); }
 const ACCOUNTS = {
   // ===== 1. 대학병원 (대형, 다품목·고회전) =====
   "hy-univ": {
-    password: "hanyang",
     profile: {
       name: "한양대학교병원",
       type: "대학병원 (3차)",
@@ -71,7 +70,6 @@ const ACCOUNTS = {
 
   // ===== 2. 2차병원 (중형, 정형·재활 집중) =====
   "semyung-2": {
-    password: "semyung",
     profile: {
       name: "세명정형외과병원",
       type: "종합병원 (2차)",
@@ -101,7 +99,6 @@ const ACCOUNTS = {
 
   // ===== 3. 개인의원 (소형, 단순 품목·저재고) =====
   "mirae-clinic": {
-    password: "mirae",
     profile: {
       name: "미래정형외과의원",
       type: "개인의원 (1차)",
@@ -136,7 +133,6 @@ const ACCOUNTS = {
    ========================================================================= */
 
 const HQ_ACCOUNT = {
-  password: "uni-hq",
   profile: {
     name: "유엔아이메디컬 (본사)",
     role: "VMI 운영본부",
@@ -145,48 +141,6 @@ const HQ_ACCOUNT = {
   },
 };
 
-// 거래처 풀: 상세 3곳(위 ACCOUNTS와 id 연결) + 요약형 9곳
-// status: healthy | watch | risk  (본사 관점 종합 신호)
-// monthlyRevenue: 월 매출(원), openIssues: 미처리 문의 수
-const FLEET = [
-  { id:"hy-univ",      name:"한양대학교병원",   type:"대학병원", tier:"univ",
-    region:"서울 성동구", skus:10, risk:3, watch:3, monthlyRevenue:8_420_000,
-    turnover:9.2, fillRate:0.985, openIssues:1, status:"watch", detailed:true },
-  { id:"semyung-2",    name:"세명정형외과병원", type:"2차병원", tier:"secondary",
-    region:"경기 안양시", skus:10, risk:2, watch:2, monthlyRevenue:3_180_000,
-    turnover:7.4, fillRate:0.972, openIssues:0, status:"watch", detailed:true },
-  { id:"mirae-clinic", name:"미래정형외과의원", type:"개인의원", tier:"clinic",
-    region:"부산 해운대구", skus:8, risk:2, watch:1, monthlyRevenue:940_000,
-    turnover:6.1, fillRate:0.958, openIssues:0, status:"risk", detailed:true },
-
-  { id:"c-004", name:"서울백년병원",       type:"2차병원", tier:"secondary",
-    region:"서울 강서구", skus:14, risk:0, watch:1, monthlyRevenue:4_260_000,
-    turnover:8.1, fillRate:0.991, openIssues:0, status:"healthy" },
-  { id:"c-005", name:"우리정형외과의원",   type:"개인의원", tier:"clinic",
-    region:"대구 수성구", skus:7,  risk:1, watch:2, monthlyRevenue:1_120_000,
-    turnover:5.7, fillRate:0.949, openIssues:2, status:"risk" },
-  { id:"c-006", name:"한빛종합병원",       type:"2차병원", tier:"secondary",
-    region:"인천 남동구", skus:16, risk:0, watch:0, monthlyRevenue:5_010_000,
-    turnover:8.8, fillRate:0.994, openIssues:0, status:"healthy" },
-  { id:"c-007", name:"강남연세재활의원",   type:"개인의원", tier:"clinic",
-    region:"서울 강남구", skus:9,  risk:0, watch:1, monthlyRevenue:1_680_000,
-    turnover:6.9, fillRate:0.977, openIssues:1, status:"healthy" },
-  { id:"c-008", name:"부산365병원",        type:"2차병원", tier:"secondary",
-    region:"부산 부산진구", skus:13, risk:2, watch:1, monthlyRevenue:3_540_000,
-    turnover:7.0, fillRate:0.961, openIssues:1, status:"watch" },
-  { id:"c-009", name:"참사랑정형외과",     type:"개인의원", tier:"clinic",
-    region:"광주 서구", skus:6,  risk:1, watch:0, monthlyRevenue:760_000,
-    turnover:5.2, fillRate:0.945, openIssues:0, status:"risk" },
-  { id:"c-010", name:"대전선병원",         type:"대학병원", tier:"univ",
-    region:"대전 중구", skus:18, risk:1, watch:2, monthlyRevenue:7_890_000,
-    turnover:9.0, fillRate:0.988, openIssues:0, status:"watch" },
-  { id:"c-011", name:"굿모닝재활의원",     type:"개인의원", tier:"clinic",
-    region:"경기 수원시", skus:8,  risk:0, watch:0, monthlyRevenue:1_340_000,
-    turnover:7.2, fillRate:0.982, openIssues:0, status:"healthy" },
-  { id:"c-012", name:"제일정형외과병원",   type:"2차병원", tier:"secondary",
-    region:"울산 남구", skus:12, risk:0, watch:1, monthlyRevenue:2_960_000,
-    turnover:7.8, fillRate:0.979, openIssues:1, status:"healthy" },
-];
 
 // 전체 거래처(데모 대표 외 나머지) 집계 — 대시보드 총계용
 const FLEET_TOTALS = {
@@ -210,79 +164,6 @@ const SKU_METRICS = [
   { sku:"UNI-RE-6800", monthlyQty:  8_700, trend:+0.09, accounts: 610, turnover: 6.6, wasteRate:0.06, recWins:29 },
 ];
 
-// 중앙물류센터 재고 현황 (본사 창고)
-// 실제 운영 중인 '재고현황' 엑셀 시트와 같은 구성:
-//   stock(재고수량) · monthly(월별 출고량) → 사용량재고(최근 3개월) → 적정재고(×0.833)
-// stock 은 담당자가 실사 후 직접 입력하는 값이고,
-// orderNote(발주 필요) / inNote(입고 예정) 는 추천값이 채워지되 메모처럼 덮어쓸 수 있다.
-const WH_MONTHS = ["2026년 02월","2026년 03월","2026년 04월","2026년 05월","2026년 06월","2026년 07월"];
-
-const WAREHOUSE = [
-  { sku:"UNI-GZ-7100", stock: 612_000, monthly:[205_300, 221_400, 198_700, 226_100, 214_800, 209_500], inbound:      0, inboundEta:"" },
-  { sku:"UNI-TP-7300", stock: 298_000, monthly:[128_400, 135_600, 130_200, 139_800, 133_100, 136_400], inbound: 200_000, inboundEta:"8월 22일" },
-  { sku:"UNI-EB-4006", stock:  96_400, monthly:[ 63_800,  59_400,  62_100,  58_700,  60_900,  57_600], inbound: 120_000, inboundEta:"8월 21일" },
-  { sku:"UNI-CB-3040", stock: 168_000, monthly:[ 46_200,  49_800,  47_500,  51_300,  48_900,  50_400], inbound:      0, inboundEta:"" },
-  { sku:"UNI-EB-4010", stock: 121_000, monthly:[ 42_600,  45_100,  43_800,  46_200,  44_700,  45_900], inbound:      0, inboundEta:"" },
-  { sku:"UNI-SC-1100", stock: 143_000, monthly:[ 35_800,  38_200,  36_400,  39_100,  37_600,  38_500], inbound:      0, inboundEta:"" },
-  { sku:"UNI-CB-3020", stock:  82_000, monthly:[ 28_100,  30_200,  29_600,  31_400,  28_900,  30_700], inbound:      0, inboundEta:"" },
-  { sku:"UNI-ST-2200", stock:  76_000, monthly:[ 21_900,  23_400,  22_100,  24_300,  22_700,  23_600], inbound:      0, inboundEta:"" },
-  { sku:"UNI-CW-7500", stock:  61_000, monthly:[ 19_800,  21_300,  20_400,  22_100,  20_900,  21_600], inbound:      0, inboundEta:"" },
-  { sku:"UNI-CS-4400", stock:  41_000, monthly:[ 11_900,  12_800,  12_200,  13_100,  12_600,  12_900], inbound:      0, inboundEta:"" },
-  { sku:"UNI-SP-5500", stock:  33_500, monthly:[ 14_900,  16_200,  15_300,  16_800,  15_700,  16_400], inbound:  30_000, inboundEta:"8월 24일" },
-  { sku:"UNI-TB-6500", stock:  26_400, monthly:[  7_100,   7_800,   7_300,   8_100,   7_600,   7_900], inbound:      0, inboundEta:"" },
-  { sku:"UNI-RE-6800", stock:  24_600, monthly:[  8_300,   9_100,   8_600,   9_400,   8_800,   9_200], inbound:      0, inboundEta:"" },
-  { sku:"UNI-CW-4700", stock:  18_900, monthly:[  9_700,  10_600,  10_100,  11_000,  10_400,  10_800], inbound:  25_000, inboundEta:"8월 23일" },
-  { sku:"UNI-AB-6300", stock:   4_200, monthly:[  5_600,   6_100,   5_800,   6_300,   6_000,   6_200], inbound:  18_000, inboundEta:"8월 21일" },
-  { sku:"UNI-KB-6100", stock:       0, monthly:[  2_900,   3_200,   3_000,   3_400,   3_100,   3_300], inbound:      0, inboundEta:"" },
-];
-
-// 본사 인박스(거래처 → 본사 문의). 소통 기능의 본사측 뷰.
-// thread: 실제 대화 로그. who = "acct"(거래처) | "hq"(유엔아이메디컬 CS)
-// preview / time / unread 는 목록 표시용이며, 대화가 오가면 갱신됩니다.
-const HQ_INBOX = [
-  { id:"m-101", accountId:"hy-univ", account:"한양대학교병원", cat:"품질 건의",
-    preview:"캐스트 밴드 절단면 거칠다는 병동 의견", time:"2시간 전", unread:true,
-    thread:[
-      { who:"acct", name:"한양대학교병원 구매물류팀", t:"어제 16:20",
-        text:"[품질 건의] 정형외과 병동에서 캐스트 밴드(UNI-CB-3040) 절단면이 거칠다는 의견이 반복해서 올라옵니다." },
-      { who:"hq", name:"유엔아이메디컬 CS", t:"어제 17:05",
-        text:"접수했습니다. 사용 중이신 로트번호를 알려주시면 품질팀에서 동일 로트 출고분을 함께 확인하겠습니다." },
-      { who:"acct", name:"한양대학교병원 구매물류팀", t:"2시간 전",
-        text:"로트 CB2608-A 입니다. 이번 주 입고분부터 증상이 보였습니다." },
-    ] },
-  { id:"m-102", accountId:"c-007", account:"강남연세재활의원", cat:"신제품 요청",
-    preview:"경량 발목 보조기 취급 가능한지 문의", time:"5시간 전", unread:true,
-    thread:[
-      { who:"acct", name:"강남연세재활의원", t:"5시간 전",
-        text:"[신제품 요청] 에어형보다 가벼운 경량 발목 보조기를 찾는 환자가 늘고 있습니다. 취급 계획이 있을까요?" },
-    ] },
-  { id:"m-103", accountId:"c-008", account:"부산365병원", cat:"배송/발주",
-    preview:"이번 주 정기 배송 일정 조정 요청", time:"어제", unread:false,
-    thread:[
-      { who:"acct", name:"부산365병원 구매팀", t:"그제 09:40",
-        text:"[배송/발주] 이번 주 정기 배송을 수요일에서 금요일 오전으로 옮길 수 있을까요? 병동 공사가 있습니다." },
-      { who:"hq", name:"유엔아이메디컬 CS", t:"그제 10:15",
-        text:"금요일 오전 배송으로 조정해 두었습니다. 변경된 일정은 배송 전날 문자로 다시 안내드립니다." },
-      { who:"acct", name:"부산365병원 구매팀", t:"어제",
-        text:"확인했습니다. 감사합니다." },
-    ] },
-  { id:"m-104", accountId:"c-005", account:"우리정형외과의원", cat:"제품 문의",
-    preview:"압박 스타킹 사이즈 규격표 요청", time:"어제", unread:false,
-    thread:[
-      { who:"acct", name:"우리정형외과의원", t:"어제",
-        text:"[제품 문의] 압박 스타킹(UNI-CS-4400) 사이즈 규격표를 받아볼 수 있을까요? 환자 상담용으로 필요합니다." },
-      { who:"hq", name:"유엔아이메디컬 CS", t:"어제",
-        text:"규격표 PDF를 담당 영업 이메일로 발송했습니다. 인쇄용 상담 카드도 함께 보내드렸습니다." },
-    ] },
-  { id:"m-105", accountId:"c-010", account:"대전선병원", cat:"품질 건의",
-    preview:"거즈 로트 일부 개봉 시 밀봉 불량", time:"2일 전", unread:false,
-    thread:[
-      { who:"acct", name:"대전선병원 구매물류팀", t:"2일 전",
-        text:"[품질 건의] 멸균 거즈(UNI-GZ-7100) 일부 팩에서 개봉 전 밀봉이 헐거운 것이 확인됐습니다." },
-      { who:"hq", name:"유엔아이메디컬 CS", t:"2일 전",
-        text:"해당 로트 출고를 보류하고 교환분을 다음 정기 배송에 포함했습니다. 회수 대상 수량을 알려주시면 반품 처리하겠습니다." },
-    ] },
-];
 
 // AI 인사이트(본사 관제용 자동 생성 카드) — 데모용 규칙 기반 결과 예시
 const AI_INSIGHTS = [

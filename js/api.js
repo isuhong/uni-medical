@@ -177,7 +177,7 @@ const API = (() => {
     return rows.map(r => ({
       sku:r.sku, stock:r.stock,
       monthly: win.map(w => bySku[r.sku]?.[w.key] ?? 0),
-      use3:r.use3, proper:r.proper, status:r.status,
+      use3:r.use3, proper:r.proper, status:r.status, parOverride:r.par_override,
       inbound:r.inbound, inboundEta:r.inbound_eta ?? "",
       orderNote:r.order_note, orderNoteByUser:r.order_note_by_user,
       inNote:r.in_note,      inNoteByUser:r.in_note_by_user,
@@ -193,6 +193,13 @@ const API = (() => {
   async function setWarehouseStock(sku, stock){
     unwrap(await client().from("warehouse_stock").update({
       stock, counted_at:new Date().toISOString(), updated_at:new Date().toISOString(),
+    }).eq("sku", sku));
+  }
+
+  // 적정재고 직접 지정. null 을 넣으면 자동 계산(사용량재고 × 0.833)으로 돌아간다.
+  async function setWarehouseProper(sku, value){
+    unwrap(await client().from("warehouse_stock").update({
+      par_override: value, updated_at:new Date().toISOString(),
     }).eq("sku", sku));
   }
 
@@ -328,7 +335,7 @@ const API = (() => {
     getInventory, setStock, addInventoryItem,
     placeOrder, getOrders,
     getFleet, getSkuMetrics,
-    getWarehouse, getWarehouseMonths, setWarehouseStock, setWarehouseNote,
+    getWarehouse, getWarehouseMonths, setWarehouseStock, setWarehouseProper, setWarehouseNote,
     shipStock, getShipments, getShippedToday,
     getMessages, getInbox, sendMessage, markRead,
     watchMessages, watchWarehouse,

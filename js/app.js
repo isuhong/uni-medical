@@ -37,10 +37,12 @@ async function attemptLogin(id, pw){
   }
 }
 
+// ID 만 채운다. 비밀번호는 Supabase Auth 에 있고 저장소에 두지 않는다.
 function fillDemo(id){
   document.getElementById("loginId").value = id;
-  document.getElementById("loginPw").value =
-    id === "uni-hq" ? HQ_ACCOUNT.password : ACCOUNTS[id].password;
+  const pw = document.getElementById("loginPw");
+  pw.value = "";
+  pw.focus();
 }
 
 function logout(){

@@ -236,7 +236,11 @@ let WH_TODAY_OUT = 0;    // 오늘 출고 수량 합계
 // 사용량재고 = 직전 완료 3개월 출고량 합.
 // 배열 마지막은 당월이고 아직 안 끝났으므로 뺀다.
 function whUse3(w){ return w.monthly.slice(0,-1).reduce((a,b)=>a+b,0); }
-function whProper(w){ return Math.round(whUse3(w) * WH_PROPER_RATIO); }  // 적정재고
+// 적정재고 — 담당자가 지정한 값이 있으면 그것을, 없으면 자동 계산값을 쓴다
+function whProper(w){
+  return w.parOverride != null ? w.parOverride
+                               : Math.round(whUse3(w) * WH_PROPER_RATIO);
+}
 function whDaily(w){ return Math.round(whUse3(w) / 90); }   // 일 평균 출고
 function whStatus(w){
   const p = whProper(w);
@@ -343,7 +347,13 @@ function hqWhRows(){
                  onchange="whSetStock('${w.sku}', this.value)"
                  aria-label="${p.name} 재고수량">
         </td>
-        <td class="col-num proper-cell" data-label="적정재고">${whNum(whProper(w))}</td>
+        <td class="col-num proper-cell" data-label="적정재고">
+          <input class="sheet-num ${w.parOverride == null ? 'rec' : ''}" type="text"
+                 inputmode="numeric" value="${whNum(whProper(w))}"
+                 title="직접 지정할 수 있습니다. 비우면 자동 계산값으로 돌아갑니다."
+                 onchange="whSetProper('${w.sku}', this.value)"
+                 aria-label="${p.name} 적정재고">
+        </td>
         <td class="memo-col" data-label="발주 필요">
           <input class="note-input ${w.orderNoteByUser?'':'rec'}" type="text"
                  value="${whNote(w,'orderNote')}" placeholder="메모"
@@ -370,7 +380,7 @@ function whRefreshRow(sku, skipStockInput){
   const w  = WH_ITEMS.find(x=>x.sku===sku);
   const tr = document.querySelector(`#hqWhRows tr[data-sku="${sku}"]`);
   if (!w || !tr) return;
-  const stockInput = tr.querySelector(".sheet-num");
+  const stockInput = tr.querySelector("td[data-label=\"재고수량\"] .sheet-num");
   if (stockInput && !skipStockInput && document.activeElement !== stockInput){
     stockInput.value = whNum(w.stock);
   }
@@ -404,7 +414,45 @@ function whShowStock(sku){
   if (!w) return;
   whRefreshRow(sku, true);
   const tr = document.querySelector(`#hqWhRows tr[data-sku="${sku}"]`);
-  if (tr) tr.querySelector(".sheet-num").value = whNum(w.stock);   // 천단위 표기로 정리
+  const inp2 = tr && tr.querySelector('td[data-label="재고수량"] .sheet-num');
+  if (inp2) inp2.value = whNum(w.stock);   // 천단위 표기로 정리
+  hqWhStats(); hqWhFilterBar();
+}
+
+// 적정재고 직접 지정. 칸을 비우면 자동 계산으로 돌아간다.
+async function whSetProper(sku, val){
+  const w = WH_ITEMS.find(x=>x.sku===sku);
+  if (!w) return;
+  const prev = w.parOverride;
+  const digits = String(val).replace(/[^0-9]/g, "");
+  const next = digits === "" ? null : Math.max(0, parseInt(digits, 10) || 0);
+  if (next === prev){ whShowProper(sku); return; }
+
+  w.parOverride = next;
+  whShowProper(sku);
+  try {
+    await API.setWarehouseProper(sku, next);
+    toast(next == null
+      ? `${findProduct(sku).name} 적정재고를 자동 계산으로 되돌렸습니다.`
+      : `${findProduct(sku).name} 적정재고를 ${whNum(next)}개로 지정했습니다.`);
+  } catch (e){
+    w.parOverride = prev;
+    whShowProper(sku);
+    toast("적정재고 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+}
+
+// 적정재고가 바뀌면 상태·발주 추천·집계가 함께 움직인다
+function whShowProper(sku){
+  const w  = WH_ITEMS.find(x=>x.sku===sku);
+  const tr = document.querySelector(`#hqWhRows tr[data-sku="${sku}"]`);
+  if (!w || !tr) return;
+  const inp = tr.querySelector(".proper-cell .sheet-num");
+  if (inp){
+    if (document.activeElement !== inp) inp.value = whNum(whProper(w));
+    inp.classList.toggle("rec", w.parOverride == null);
+  }
+  whRefreshRow(sku, true);
   hqWhStats(); hqWhFilterBar();
 }
 
